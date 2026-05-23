@@ -2,8 +2,13 @@ import datetime
 from django.test import TestCase
 from django.utils import timezone
 from django.contrib.auth import get_user_model
+from django.core.exceptions import PermissionDenied
 from apps.compliance.models import SelfExclusion
-from apps.compliance.services import apply_self_exclusion
+from apps.compliance.services import (
+    apply_self_exclusion,
+    is_user_self_excluded,
+    execute_bet_lock
+)
 
 User = get_user_model()
 
@@ -37,3 +42,9 @@ class SelfExclusionTests(TestCase):
 
         apply_self_exclusion(user=self.user, duration_days=30)
         self.assertTrue(is_user_self_excluded(self.user)) 
+    
+    def test_6_execute_bet_lock_rechaza_usuario(self):
+        """6 execute_bet_lock rechaza usuario autoexcluido RED → GREEN"""
+        apply_self_exclusion(user=self.user, duration_days=7)
+        with self.assertRaisesMessage(PermissionDenied, "Usuario autoexcluido no puede operar"):
+            execute_bet_lock(self.user)
