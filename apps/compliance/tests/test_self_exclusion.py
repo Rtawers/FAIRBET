@@ -24,3 +24,9 @@ class SelfExclusionTests(TestCase):
         exclusion = apply_self_exclusion(user=self.user, duration_days=None)
         self.assertIsNone(exclusion.end_date)
         self.assertTrue(exclusion.is_active())
+
+    def test_3_autoexclusion_expirada_ya_no_esta_activa(self):
+        """3 Autoexclusión expirada ya no está activa RED → GREEN"""
+        past_date = timezone.now() - datetime.timedelta(days=1)
+        exclusion = SelfExclusion.objects.create(user=self.user, end_date=past_date)
+        self.assertFalse(exclusion.is_active())
