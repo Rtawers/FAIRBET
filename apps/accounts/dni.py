@@ -15,3 +15,17 @@ def calcular_digito_verificador(dni_str: str) -> str:
     }
     
     return tabla_mapeo[residuo]
+
+def validar_dni(dni_completo: str) -> bool:
+    if len(dni_completo) != 9:
+        raise ValueError("El DNI completo debe tener 9 caracteres")
+        
+    numeros = dni_completo[:8]
+    digito_recibido = dni_completo[8].upper() 
+    
+    digito_correcto = calcular_digito_verificador(numeros)
+    
+    if digito_recibido != digito_correcto:
+        raise ValueError("El dígito verificador es incorrecto")
+        
+    return True
