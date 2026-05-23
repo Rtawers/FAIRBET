@@ -9,7 +9,7 @@ User = get_user_model()
 
 class SelfExclusionTests(TestCase):
     def setUp(self):
-        # Creamos un usuario de prueba usando el modelo de usuario por defecto de Django
+
         self.user = User.objects.create(username="test_user")
 
     def test_1_autoexclusion_temporal_7_dias_calcula_fecha_fin(self):
@@ -30,3 +30,10 @@ class SelfExclusionTests(TestCase):
         past_date = timezone.now() - datetime.timedelta(days=1)
         exclusion = SelfExclusion.objects.create(user=self.user, end_date=past_date)
         self.assertFalse(exclusion.is_active())
+
+   def test_4_5_verificar_estado_autoexclusion_usuario(self):
+        """4 y 5 Usuario sin/con exclusión activa retorna False/True RED → GREEN"""
+        self.assertFalse(is_user_self_excluded(self.user))
+
+        apply_self_exclusion(user=self.user, duration_days=30)
+        self.assertTrue(is_user_self_excluded(self.user)) 
