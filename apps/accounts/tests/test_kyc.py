@@ -1,5 +1,7 @@
 import pytest
 from apps.accounts.dni import calcular_digito_verificador
+from hypothesis import given, strategies as st
+
 
 def test_calcular_digito_verificador_retorna_un_solo_caracter():
     dni_ejemplo = "45678912"
@@ -74,3 +76,12 @@ def test_usuario_mayor_de_edad_con_dni_valido_pasa_a_estado_verified():
     )
     
     assert usuario.profile.kyc_status == "VERIFIED"
+
+@given(st.strings(st.digits(), min_size=8, max_size=8))
+def test_invariante_calcular_digito_verificador_con_hypothesis(dni_aleatorio):
+    from apps.accounts.dni import calcular_digito_verificador
+    
+    resultado = calcular_digito_verificador(dni_aleatorio)
+    
+    assert len(resultado) == 1
+    assert resultado in "0123456789K"
