@@ -60,7 +60,8 @@ class Market(models.Model):
 
     @classmethod
     def create_1x2_market(cls, event, odds_home, odds_draw, odds_away):
-        # 🔴 RED: sin validación de VOIDED
+        if event.status == EventStatus.VOIDED:
+            raise ValueError("No se puede crear un mercado sobre un evento anulado.")
         with transaction.atomic():
             market = cls.objects.create(event=event, name="1X2", market_type="1x2")
             Selection.objects.create(market=market, name="Local",     outcome="LOCAL", odds=odds_home)
