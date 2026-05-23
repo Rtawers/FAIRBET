@@ -32,6 +32,23 @@ class Event(models.Model):
     )
     created_at = models.DateTimeField(auto_now_add=True)
     updated_at = models.DateTimeField(auto_now=True)
+    VALID_TRANSITIONS = {
+        EventStatus.SCHEDULED: [EventStatus.LIVE, EventStatus.SUSPENDED, EventStatus.VOIDED],
+        EventStatus.LIVE:      [EventStatus.FINISHED, EventStatus.SUSPENDED, EventStatus.VOIDED],
+        EventStatus.SUSPENDED: [EventStatus.LIVE, EventStatus.VOIDED],
+        EventStatus.FINISHED:  [],
+        EventStatus.VOIDED:    [],
+    }
+
+    def transition_to(self, new_status: str) -> None:
+        allowed = self.VALID_TRANSITIONS.get(self.status, [])
+        if new_status not in allowed:
+            raise ValueError(
+                f"Transición inválida: {self.status} → {new_status}. "
+                f"Permitidas: {allowed}"
+            )
+        self.status = new_status
+        self.save(update_fields=["status", "updated_at"])
 
     class Meta:
         ordering = ["starts_at"]
