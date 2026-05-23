@@ -1,12 +1,1 @@
-# Declaracion de uso de IA
-
-> Una por integrante. Indica QUE consultaste y PARA QUE
-> (estudiar concepto / depurar error / revisar codigo / generar boilerplate).
-
-| Fecha | Parte del proyecto | Tipo de uso | Detalle |
-|-------|--------------------|-------------|---------|
-|       |                    |             |         |
-
-## Notas
-- Scaffolding inicial (estructura, docker-compose, settings): generado con
-  asistencia de IA y declarado. Revisado y entendido antes de usarse.
+| 2026-05-23 | Sprint 2 - Concurrencia y ADRs | Diagnostico del error TransactionTestCase vs TestCase en tests de concurrencia. Redaccion de ADRs 0001-0003 a partir de decisiones ya tomadas. | apps/wallet/tests/test_services.py::ConcurrencyTestCase, docs/adr/0001-0003. |
