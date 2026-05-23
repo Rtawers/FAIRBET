@@ -2,6 +2,9 @@ def calcular_digito_verificador(dni_str: str) -> str:
     if len(dni_str) < 8:
         raise ValueError("El DNI debe tener al menos 8 dígitos")
         
+    if not dni_str.isdigit():
+        raise ValueError("El DNI solo debe contener caracteres numericos")
+        
     pesos = [3, 2, 7, 6, 5, 4, 3, 2]
     suma = sum(int(dni_str[i]) * pesos[i] for i in range(8))
     residuo = suma % 11
