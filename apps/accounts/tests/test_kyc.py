@@ -124,3 +124,27 @@ def test_usuario_que_cumple_18_anos_manana_es_rechazado_lanza_value_error():
             dni="456789121",
             fecha_nacimiento=fecha_cumple_manana
         )
+
+@pytest.mark.django_db
+def test_intentar_registrar_dos_usuarios_con_el_mismo_dni_lanza_error_de_unicidad():
+    from datetime import date
+    from apps.accounts.services import registrar_usuario_kyc
+    
+    fecha_valida = date(2000, 1, 1)
+    dni_compartido = "456789121"
+    
+    registrar_usuario_kyc(
+        username="usuario_original",
+        email="original@fairbet.com",
+        password="password123",
+        dni=dni_compartido,
+        fecha_nacimiento=fecha_valida
+    )
+    
+     registrar_usuario_kyc(
+        username="usuario_impostor",
+        email="impostor@fairbet.com",
+        password="password123",
+        dni=dni_compartido,
+        fecha_nacimiento=fecha_valida
+    )
