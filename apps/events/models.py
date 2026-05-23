@@ -90,7 +90,11 @@ class Selection(models.Model):
     created_at = models.DateTimeField(auto_now_add=True)
     updated_at = models.DateTimeField(auto_now=True)
 
-    
+    def clean(self):
+        if self.odds is not None and self.odds <= Decimal("1.00"):
+            raise ValidationError(
+                {"odds": f"Las odds deben ser > 1.00. Recibido: {self.odds}"}
+            )
 
     def save(self, *args, **kwargs):
         self.full_clean()
