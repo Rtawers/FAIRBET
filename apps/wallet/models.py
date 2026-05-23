@@ -6,12 +6,15 @@ Arquitectura de partida doble:
   - Account: una cuenta contable (WALLET, CASA, PENDING, BONUS).
   - Transaction: cabecera de un movimiento (RECHARGE, BET_LOCK, SETTLEMENT).
   - LedgerEntry: cada asiento contable (DEBIT o CREDIT).
+  - Bet: una apuesta con su maquina de estados.
 
 Invariantes que SIEMPRE se cumplen:
   - Por cada Transaction, la suma firmada de sus LedgerEntries es cero.
   - El saldo de un Account se calcula SUM(credits) - SUM(debits).
   - Nunca se almacena el saldo en una columna — siempre es derivado.
 """
+from decimal import Decimal
+
 from django.contrib.auth.models import User
 from django.db import models
 
@@ -26,7 +29,7 @@ class Account(models.Model):
       WALLET  — billetera del usuario (saldo disponible para apostar).
       CASA    — cuenta central de la plataforma.
       PENDING — bolsa transitoria de fondos bloqueados por apuestas activas.
-      BONUS   — billetera de bonos (Nivel 2, implementación futura).
+      BONUS   — billetera de bonos (Nivel 2, implementacion futura).
     """
 
     class AccountType(models.TextChoices):
@@ -64,13 +67,13 @@ class Transaction(models.Model):
     Tipos:
       RECHARGE   — recarga de fichas virtuales.
       BET_LOCK   — bloqueo de fondos al confirmar una apuesta.
-      SETTLEMENT — liquidación de apuesta (ganada o perdida).
+      SETTLEMENT — liquidacion de apuesta (ganada o perdida).
     """
 
     class Kind(models.TextChoices):
         RECHARGE = 'RECHARGE', 'Recarga de fichas'
         BET_LOCK = 'BET_LOCK', 'Bloqueo por apuesta'
-        SETTLEMENT = 'SETTLEMENT', 'Liquidación de apuesta'
+        SETTLEMENT = 'SETTLEMENT', 'Liquidacion de apuesta'
 
     kind = models.CharField(max_length=15, choices=Kind.choices)
     created_at = models.DateTimeField(auto_now_add=True)
@@ -82,7 +85,7 @@ class Transaction(models.Model):
     )
 
     class Meta:
-        verbose_name = 'Transacción'
+        verbose_name = 'Transaccion'
         verbose_name_plural = 'Transacciones'
 
     def __str__(self):
@@ -98,8 +101,8 @@ class LedgerEntry(models.Model):
     """
 
     class Direction(models.TextChoices):
-        DEBIT = 'DEBIT', 'Débito (-)'
-        CREDIT = 'CREDIT', 'Crédito (+)'
+        DEBIT = 'DEBIT', 'Debito (-)'
+        CREDIT = 'CREDIT', 'Credito (+)'
 
     transaction = models.ForeignKey(
         Transaction,
@@ -119,4 +122,62 @@ class LedgerEntry(models.Model):
         verbose_name_plural = 'Asientos contables'
 
     def __str__(self):
-        return f'Entry {self.pk} | {self.direction} {self.amount} → {self.account}'
+        return f'Entry {self.pk} | {self.direction} {self.amount}'
+
+
+class Bet(models.Model):
+    """
+    Una apuesta registrada en el sistema.
+
+    Estados (maquina de estados):
+      PENDING    — creada pero pendiente de validacion.
+      ACCEPTED   — fondos bloqueados, apuesta activa.
+      WON        — apuesta ganada, payout acreditado.
+      LOST       — apuesta perdida, stake a la casa.
+      CANCELLED  — apuesta cancelada (evento suspendido/anulado).
+
+    La relacion OneToOne con lock_transaction garantiza que cada apuesta
+    tiene exactamente una transaccion de bloqueo asociada. on_delete=PROTECT
+    impide borrar la transaccion si la apuesta existe.
+    """
+
+    class BetStatus(models.TextChoices):
+        PENDING = 'PENDING', 'Pendiente'
+        ACCEPTED = 'ACCEPTED', 'Aceptada'
+        WON = 'WON', 'Ganada'
+        LOST = 'LOST', 'Perdida'
+        CANCELLED = 'CANCELLED', 'Cancelada'
+
+    user = models.ForeignKey(
+        User,
+        on_delete=models.CASCADE,
+        related_name='bets',
+    )
+    amount = MoneyField()
+    odds = models.DecimalField(max_digits=6, decimal_places=2)
+    status = models.CharField(
+        max_length=15,
+        choices=BetStatus.choices,
+        default=BetStatus.ACCEPTED,
+    )
+    lock_transaction = models.OneToOneField(
+        Transaction,
+        on_delete=models.PROTECT,
+        related_name='bet',
+    )
+    created_at = models.DateTimeField(auto_now_add=True)
+
+    @property
+    def potential_payout(self) -> Decimal:
+        """
+        Pago potencial = stake x odds.
+        Se calcula dinamicamente, nunca se almacena.
+        """
+        return (self.amount * self.odds).quantize(Decimal('0.0001'))
+
+    class Meta:
+        verbose_name = 'Apuesta'
+        verbose_name_plural = 'Apuestas'
+
+    def __str__(self):
+        return f'Bet {self.pk} [{self.status}] — {self.user.username}'
