@@ -141,10 +141,11 @@ def test_intentar_registrar_dos_usuarios_con_el_mismo_dni_lanza_error_de_unicida
         fecha_nacimiento=fecha_valida
     )
     
-     registrar_usuario_kyc(
-        username="usuario_impostor",
-        email="impostor@fairbet.com",
-        password="password123",
-        dni=dni_compartido,
-        fecha_nacimiento=fecha_valida
-    )
+    with pytest.raises(ValueError, match="El DNI ya se encuentra registrado por otro usuario"):
+        registrar_usuario_kyc(
+            username="usuario_impostor",
+            email="impostor@fairbet.com",
+            password="password123",
+            dni=dni_compartido,
+            fecha_nacimiento=fecha_valida
+        )
