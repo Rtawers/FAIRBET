@@ -18,3 +18,11 @@ def test_calcular_digito_verificador_con_letras_lanza_value_error():
     dni_con_letras = "4567891A"
     with pytest.raises(ValueError, match="El DNI solo debe contener caracteres numericos"):
         calcular_digito_verificador(dni_con_letras)
+
+def test_validar_dni_completo_con_digito_incorrecto_lanza_value_error():
+   
+    dni_incorrecto = "45678912X" 
+    
+    with pytest.raises(ValueError, match="El dígito verificador es incorrecto"):
+        from apps.accounts.dni import validar_dni
+        validar_dni(dni_incorrecto)
