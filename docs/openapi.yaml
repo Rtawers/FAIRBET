@@ -1,0 +1,9 @@
+openapi: 3.0.3
+info:
+  title: FairBet API
+  version: 0.1.0
+  description: >-
+    Plataforma educativa con moneda virtual. No constituye una casa de apuestas.
+servers:
+  - url: http://localhost:8000/api
+paths: {}

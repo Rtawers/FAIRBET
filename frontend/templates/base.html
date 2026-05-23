@@ -1,0 +1,21 @@
+<!doctype html>
+<html lang="es">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>{% block title %}FairBet{% endblock %}</title>
+</head>
+<body>
+  <!-- Mensaje obligatorio de consumo responsable (Ley 31557) -->
+  <div class="responsible-gaming-banner">
+    Juega con responsabilidad. Solo fichas virtuales sin valor monetario real.
+  </div>
+
+  <main>{% block content %}{% endblock %}</main>
+
+  <!-- Footer regulatorio obligatorio (== settings.RESPONSIBLE_GAMING_FOOTER) -->
+  <footer>
+    Plataforma educativa con moneda virtual. No constituye una casa de apuestas.
+  </footer>
+</body>
+</html>

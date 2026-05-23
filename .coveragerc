@@ -1,0 +1,11 @@
+[run]
+source =
+    apps/wallet
+    apps/betting
+omit =
+    */migrations/*
+    */tests/*
+
+[report]
+show_missing = True
+fail_under = 80
