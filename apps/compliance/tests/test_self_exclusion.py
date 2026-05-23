@@ -48,3 +48,5 @@ class SelfExclusionTests(TestCase):
         apply_self_exclusion(user=self.user, duration_days=7)
         with self.assertRaisesMessage(PermissionDenied, "Usuario autoexcluido no puede operar"):
             execute_bet_lock(self.user)
+
+    

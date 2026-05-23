@@ -1,19 +1,15 @@
 import datetime
 from decimal import Decimal
 from django.utils import timezone
-from django.core.exceptions import PermissionDenied
+from django.core.exceptions import PermissionDenied, ValidationError
 from .models import SelfExclusion, DepositLimit
+
 
 def apply_self_exclusion(user, duration_days=None):
     end_date = None
     if duration_days is not None:
         end_date = timezone.now() + datetime.timedelta(days=duration_days)
-        
-    exclusion = SelfExclusion.objects.create(
-        user=user,
-        end_date=end_date
-    )
-    return exclusion
+    return SelfExclusion.objects.create(user=user, end_date=end_date)
 
 def is_user_self_excluded(user):
     exclusions = SelfExclusion.objects.filter(user=user)
@@ -27,7 +23,7 @@ def execute_bet_lock(user):
 
 def get_daily_limit(user):
     try:
-        limit_obj = user.depositlimit
+        limit_obj = DepositLimit.objects.get(user=user)
         return {
             'active_limit': limit_obj.active_limit,
             'pending_limit': limit_obj.pending_limit
@@ -50,7 +46,6 @@ def set_daily_limit(user, amount):
         limit_obj.active_limit = amount
         limit_obj.pending_limit = None
         limit_obj.pending_since = None
-
     else:
         limit_obj.pending_limit = amount
         limit_obj.pending_since = timezone.now()
@@ -69,3 +64,11 @@ def promote_pending_limits():
         limit.pending_limit = None
         limit.pending_since = None
         limit.save()
+
+
+def validate_deposit(user, amount):
+    limit_data = get_daily_limit(user)
+    active_limit = limit_data.get('active_limit')
+    if active_limit is not None and amount > active_limit:
+        raise ValidationError("El monto de recarga excede el límite diario configurado")  
+    return True
