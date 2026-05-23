@@ -32,6 +32,7 @@ DJANGO_APPS = [
 THIRD_PARTY_APPS = [
     "rest_framework",
     "channels",
+    "drf_spectacular",
 ]
 
 LOCAL_APPS = [
@@ -133,6 +134,7 @@ DEFAULT_AUTO_FIELD = "django.db.models.BigAutoField"
 
 # -------------------------------------------------------------------- DRF
 REST_FRAMEWORK = {
+    "DEFAULT_SCHEMA_CLASS": "drf_spectacular.openapi.AutoSchema",
     "DEFAULT_AUTHENTICATION_CLASSES": (
         "rest_framework_simplejwt.authentication.JWTAuthentication",
         "rest_framework.authentication.SessionAuthentication",
