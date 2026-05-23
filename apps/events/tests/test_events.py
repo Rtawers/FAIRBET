@@ -8,6 +8,9 @@ from django.utils import timezone
 from django.core.exceptions import ValidationError
 
 from apps.events.models import Event, Market, Selection, EventStatus, MarketStatus
+from hypothesis import given, settings as h_settings
+from hypothesis import strategies as st
+from apps.events.services import calculate_margin
 
 
 def make_event(**kwargs):
@@ -120,3 +123,22 @@ def test_odds_above_one_are_accepted():
         outcome="LOCAL", odds=Decimal("1.01"),
     )
     assert sel.pk is not None
+
+
+@given(
+    h=st.decimals(min_value="1.01", max_value="20.00", places=2),
+    d=st.decimals(min_value="1.01", max_value="20.00", places=2),
+    a=st.decimals(min_value="1.01", max_value="20.00", places=2),
+)
+@h_settings(max_examples=100, deadline=2000)
+def test_operator_margin_is_consistent(h, d, a):
+    margin = calculate_margin(h, d, a)
+    expected = (
+        Decimal("1") / h +
+        Decimal("1") / d +
+        Decimal("1") / a -
+        Decimal("1")
+    ) * Decimal("100")
+    expected = expected.quantize(Decimal("0.0001"))
+    assert margin == expected
+    assert isinstance(margin, Decimal)
