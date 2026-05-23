@@ -72,3 +72,14 @@ def test_create_1x2_market_is_atomic():
             odds_away=Decimal("0.50"),  # inválido → rollback
         )
     assert Market.objects.count() == count_before
+
+@pytest.mark.django_db
+def test_cannot_create_market_on_voided_event():
+    event = make_event(status=EventStatus.VOIDED)
+    with pytest.raises(ValueError, match="anulado"):
+        Market.create_1x2_market(
+            event=event,
+            odds_home=Decimal("2.50"),
+            odds_draw=Decimal("3.20"),
+            odds_away=Decimal("2.80"),
+        )

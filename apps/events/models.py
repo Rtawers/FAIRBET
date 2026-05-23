@@ -44,20 +44,23 @@ class Market(models.Model):
     event       = models.ForeignKey(Event, on_delete=models.CASCADE, related_name="markets")
     name        = models.CharField(max_length=100)
     market_type = models.CharField(max_length=50)
-    status      = models.CharField(
-        max_length=20,
-        choices=MarketStatus.choices,
-        default=MarketStatus.OPEN,
-    )
+    status = models.CharField(
+    max_length=20,
+    choices=MarketStatus.choices,
+    default=MarketStatus.OPEN,
+)
     created_at = models.DateTimeField(auto_now_add=True)
     updated_at = models.DateTimeField(auto_now=True)
 
     class Meta:
         unique_together = [("event", "market_type")]
+
+    def __str__(self):
+        return f"{self.event} — {self.name} ({self.status})"
+
     @classmethod
     def create_1x2_market(cls, event, odds_home, odds_draw, odds_away):
-        if event.status == EventStatus.VOIDED:
-            raise ValueError("No se puede crear un mercado sobre un evento anulado.")
+        # 🔴 RED: sin validación de VOIDED
         with transaction.atomic():
             market = cls.objects.create(event=event, name="1X2", market_type="1x2")
             Selection.objects.create(market=market, name="Local",     outcome="LOCAL", odds=odds_home)
@@ -65,9 +68,7 @@ class Market(models.Model):
             Selection.objects.create(market=market, name="Visitante", outcome="AWAY",  odds=odds_away)
         return market
 
-    def __str__(self):
-        return f"{self.event} — {self.name} ({self.status})"
-    
+
 class SelectionResult(models.TextChoices):
     PENDING = "PENDING", "Pendiente"
     WON     = "WON",     "Ganó"
