@@ -3,12 +3,13 @@ from decimal import Decimal
 from django.test import TestCase
 from django.utils import timezone
 from django.contrib.auth import get_user_model
-from django.core.exceptions import ValidationError 
+from django.core.exceptions import ValidationError
+from apps.compliance.models import DepositLimit  # <-- Agregamos el modelo aquí
 from apps.compliance.services import (
     get_daily_limit, 
     set_daily_limit, 
     promote_pending_limits,
-    validate_deposit  
+    validate_deposit
 )
 
 User = get_user_model()
@@ -20,7 +21,6 @@ class DepositLimitTests(TestCase):
 
     def test_7_8_9_gestion_limites_deposito(self):
         """7, 8 y 9: Bajar es instantáneo, subir es pending, se promueve a las 24h RED → GREEN"""
-
         set_daily_limit(self.user, Decimal('500.0000'))
         limit_data = get_daily_limit(self.user)
         self.assertEqual(limit_data['active_limit'], Decimal('500.0000'))
@@ -31,7 +31,7 @@ class DepositLimitTests(TestCase):
         self.assertEqual(limit_data['active_limit'], Decimal('500.0000')) 
         self.assertEqual(limit_data['pending_limit'], Decimal('2000.0000'))
 
-        limit_obj = self.user.depositlimit 
+        limit_obj = DepositLimit.objects.get(user=self.user) 
         limit_obj.pending_since = timezone.now() - datetime.timedelta(hours=25)
         limit_obj.save()
 
