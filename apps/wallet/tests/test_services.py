@@ -14,6 +14,7 @@ from django.test import TestCase
 from hypothesis import given, settings
 from hypothesis import strategies as st
 from hypothesis.extra.django import TestCase as HypothesisTestCase
+from django.test import TransactionTestCase
 
 
 class ExecuteRechargeTestCase(TestCase):
@@ -223,3 +224,108 @@ class ExecuteBetSettlementTestCase(TestCase):
 
         with self.assertRaises(ValueError):
             execute_bet_settlement(bet=bet, won=True)
+
+
+class ConcurrencyTestCase(TransactionTestCase):
+    """
+    Prueba de concurrencia: N peticiones simultaneas no generan doble gasto.
+
+    Usa TransactionTestCase (no TestCase) porque los threads secundarios
+    necesitan ver los datos creados en setUp. Con TestCase normal, los datos
+    viven en una transaccion no commiteada que los threads no pueden ver.
+    Con TransactionTestCase, cada operacion hace commit real a la BD.
+
+    La guia exige textual: "Pruebas de concurrencia: simular N peticiones
+    simultaneas y verificar que no haya doble gasto."
+    """
+
+    def setUp(self):
+        from apps.wallet.models import Account
+        from apps.wallet.services import execute_recharge
+
+        self.user = User.objects.create_user(
+            username='test_concurrencia', password='pass'
+        )
+        self.wallet = Account.objects.create(
+            user=self.user,
+            type=Account.AccountType.WALLET,
+            currency='PEN',
+        )
+        Account.objects.create(
+            type=Account.AccountType.CASA, currency='PEN'
+        )
+        Account.objects.create(
+            type=Account.AccountType.PENDING, currency='PEN'
+        )
+        # Saldo inicial: 100 fichas
+        execute_recharge(user=self.user, amount=Decimal('100.0000'))
+
+    def test_concurrent_bet_locks_no_double_spend(self):
+        """
+        10 threads intentan apostar 20 fichas simultaneamente.
+        Con saldo de 100, como maximo 5 deben tener exito.
+        El saldo final NUNCA puede ser negativo.
+        """
+        import threading
+        from apps.wallet.services import execute_bet_lock
+        from apps.wallet.models import LedgerEntry, Account
+        from django.db import connection
+        from django.db.models import Sum, Q
+
+        resultados = {'exitos': 0, 'rechazos': 0}
+        lock = threading.Lock()
+
+        def intentar_apostar():
+            # Cada thread necesita su propia conexion a la BD
+            connection.ensure_connection()
+            try:
+                execute_bet_lock(user=self.user, amount=Decimal('20.0000'))
+                with lock:
+                    resultados['exitos'] += 1
+            except ValueError:
+                with lock:
+                    resultados['rechazos'] += 1
+            except Exception:
+                with lock:
+                    resultados['rechazos'] += 1
+            finally:
+                connection.close()
+
+        # Lanzar 10 threads simultaneamente
+        threads = [
+            threading.Thread(target=intentar_apostar)
+            for _ in range(10)
+        ]
+        for t in threads:
+            t.start()
+        for t in threads:
+            t.join()
+
+        # Verificacion 1: todos los intentos fueron procesados
+        self.assertEqual(
+            resultados['exitos'] + resultados['rechazos'], 10
+        )
+
+        # Verificacion 2: el saldo nunca es negativo
+        wallet = Account.objects.get(
+            user=self.user, type=Account.AccountType.WALLET
+        )
+        balance = LedgerEntry.objects.filter(account=wallet).aggregate(
+            credits=Sum(
+                'amount',
+                filter=Q(direction=LedgerEntry.Direction.CREDIT)
+            ),
+            debits=Sum(
+                'amount',
+                filter=Q(direction=LedgerEntry.Direction.DEBIT)
+            ),
+        )
+        saldo_final = (
+            (balance['credits'] or Decimal('0')) -
+            (balance['debits'] or Decimal('0'))
+        )
+        self.assertGreaterEqual(saldo_final, Decimal('0.0000'))
+
+        # Verificacion 3: no se gastó más de lo que había
+        fichas_bloqueadas = resultados['exitos'] * Decimal('20.0000')
+        self.assertLessEqual(fichas_bloqueadas, Decimal('100.0000'))
