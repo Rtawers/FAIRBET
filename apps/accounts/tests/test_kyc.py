@@ -41,3 +41,19 @@ def test_user_profile_recien_creado_tiene_estado_pending_verification():
     )
     
     assert perfil.kyc_status == "PENDING_VERIFICATION"
+
+@pytest.mark.django_db
+def test_usuario_menor_de_edad_es_rechazado_en_kyc_lanza_value_error():
+    from datetime import date
+    from apps.accounts.services import registrar_usuario_kyc
+    
+    fecha_nacimiento_menor = date(2015, 5, 23)
+    
+    with pytest.raises(ValueError, match="El usuario debe ser mayor de 18 años"):
+        registrar_usuario_kyc(
+            username="maicol_menor",
+            email="menor@fairbet.com",
+            password="password123",
+            dni="45678912",
+            fecha_nacimiento=fecha_nacimiento_menor
+        )
