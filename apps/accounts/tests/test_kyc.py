@@ -69,7 +69,7 @@ def test_usuario_mayor_de_edad_con_dni_valido_pasa_a_estado_verified():
         username="maicol_valido",
         email="valido@fairbet.com",
         password="password123",
-        dni="456789126",
+        dni="456789121",
         fecha_nacimiento=fecha_nacimiento_valida
     )
     
