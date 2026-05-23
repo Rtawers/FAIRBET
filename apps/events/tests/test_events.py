@@ -180,3 +180,40 @@ def test_update_odds_rejects_invalid():
 
     with pytest.raises((ValidationError, ValueError)):
         update_odds(selection, new_odds=Decimal("0.50"))
+
+
+
+@pytest.mark.django_db
+def test_update_odds_saves_history():
+    event = make_event()
+    market = Market.create_1x2_market(
+        event=event,
+        odds_home=Decimal("2.50"),
+        odds_draw=Decimal("3.20"),
+        odds_away=Decimal("2.80"),
+    )
+    selection = market.selections.get(outcome="LOCAL")
+
+    update_odds(selection, new_odds=Decimal("2.80"))
+
+    selection.refresh_from_db()
+    assert selection.odds == Decimal("2.8000")
+
+    history = selection.odds_history.first()
+    assert history.odds_before == Decimal("2.5000")
+    assert history.odds_after == Decimal("2.8000")
+
+
+@pytest.mark.django_db
+def test_update_odds_rejects_invalid():
+    event = make_event()
+    market = Market.create_1x2_market(
+        event=event,
+        odds_home=Decimal("2.50"),
+        odds_draw=Decimal("3.20"),
+        odds_away=Decimal("2.80"),
+    )
+    selection = market.selections.get(outcome="LOCAL")
+
+    with pytest.raises((ValidationError, ValueError)):
+        update_odds(selection, new_odds=Decimal("0.50"))
