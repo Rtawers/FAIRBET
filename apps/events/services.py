@@ -1,5 +1,6 @@
 from decimal import Decimal, ROUND_HALF_UP
-
+from django.db import transaction
+from apps.events.models import Selection, OddsHistory
 
 def calculate_margin(*odds_list: Decimal) -> Decimal:
     if not odds_list:
@@ -7,3 +8,44 @@ def calculate_margin(*odds_list: Decimal) -> Decimal:
     total = sum(Decimal("1") / odd for odd in odds_list)
     margin = (total - Decimal("1")) * Decimal("100")
     return margin.quantize(Decimal("0.0001"), rounding=ROUND_HALF_UP)
+
+
+
+def update_odds(selection: Selection, new_odds: Decimal, changed_by=None) -> Selection:
+    if new_odds <= Decimal("1.00"):
+        raise ValueError(f"Las odds deben ser > 1.00. Recibido: {new_odds}")
+
+    with transaction.atomic():
+        OddsHistory.objects.create(
+            selection=selection,
+            odds_before=selection.odds,
+            odds_after=new_odds,
+            changed_by=changed_by,
+        )
+        Selection.objects.filter(pk=selection.pk).update(odds=new_odds)
+        selection.odds = new_odds
+
+    _broadcast_odds_update(selection)
+    return selection
+
+
+def _broadcast_odds_update(selection: Selection) -> None:
+    try:
+        from channels.layers import get_channel_layer
+        from asgiref.sync import async_to_sync
+        channel_layer = get_channel_layer()
+        if channel_layer is None:
+            return
+        group_name = f"event_{selection.market.event_id}_odds"
+        async_to_sync(channel_layer.group_send)(
+            group_name,
+            {
+                "type":         "odds.update",
+                "selection_id": selection.pk,
+                "outcome":      selection.outcome,
+                "odds":         str(selection.odds),
+                "market_id":    selection.market_id,
+            },
+        )
+    except Exception:
+        pass

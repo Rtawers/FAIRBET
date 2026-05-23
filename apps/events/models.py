@@ -102,3 +102,13 @@ class Selection(models.Model):
 
     def __str__(self):
         return f"{self.market} | {self.name} @ {self.odds}"
+
+class OddsHistory(models.Model):
+    selection   = models.ForeignKey(Selection, on_delete=models.CASCADE, related_name="odds_history")
+    odds_before = models.DecimalField(max_digits=18, decimal_places=4)
+    odds_after  = models.DecimalField(max_digits=18, decimal_places=4)
+    changed_at  = models.DateTimeField(default=timezone.now)
+    changed_by  = models.ForeignKey("auth.User", null=True, blank=True, on_delete=models.SET_NULL, related_name="odds_changes")
+
+    class Meta:
+        ordering = ["-changed_at"]
