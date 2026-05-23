@@ -1,11 +1,12 @@
 import datetime
 from django.utils import timezone
+from django.core.exceptions import PermissionDenied
 from .models import SelfExclusion
 
 def apply_self_exclusion(user, duration_days=None):
     """
     Aplica una autoexclusión a un usuario. 
-    Si duration_days es provisto, calcula la fecha de fin.
+    Si duration_days es None, es indefinida.
     """
     end_date = None
     if duration_days is not None:
@@ -23,5 +24,12 @@ def is_user_self_excluded(user):
     Ignora el historial de exclusiones que ya expiraron.
     """
     exclusions = SelfExclusion.objects.filter(user=user)
- 
     return any(excl.is_active() for excl in exclusions)
+
+def execute_bet_lock(user):
+    """
+    Bloquea las operaciones del usuario si tiene una autoexclusión activa.
+    """
+    if is_user_self_excluded(user):
+        raise PermissionDenied("Usuario autoexcluido no puede operar")
+    return True
