@@ -12,7 +12,7 @@ from channels.security.websocket import AllowedHostsOriginValidator  # noqa: E40
 
 # Rutas WebSocket por app (events, betting). Ej:
 # from apps.events.routing import websocket_urlpatterns
-websocket_urlpatterns = []
+from apps.events.routing import websocket_urlpatterns
 
 application = ProtocolTypeRouter(
     {
