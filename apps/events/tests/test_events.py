@@ -83,3 +83,40 @@ def test_cannot_create_market_on_voided_event():
             odds_draw=Decimal("3.20"),
             odds_away=Decimal("2.80"),
         )
+@pytest.mark.django_db
+def test_odds_below_one_are_rejected():
+    event = make_event()
+    market = Market.objects.create(
+        event=event, name="1X2", market_type="test_inv"
+    )
+    with pytest.raises(ValidationError):
+        Selection.objects.create(
+            market=market, name="Local",
+            outcome="LOCAL", odds=Decimal("0.90"),
+        )
+
+
+@pytest.mark.django_db
+def test_odds_equal_to_one_are_rejected():
+    event = make_event()
+    market = Market.objects.create(
+        event=event, name="1X2", market_type="test_one"
+    )
+    with pytest.raises(ValidationError):
+        Selection.objects.create(
+            market=market, name="Local",
+            outcome="LOCAL", odds=Decimal("1.00"),
+        )
+
+
+@pytest.mark.django_db
+def test_odds_above_one_are_accepted():
+    event = make_event()
+    market = Market.objects.create(
+        event=event, name="1X2", market_type="test_valid"
+    )
+    sel = Selection.objects.create(
+        market=market, name="Local",
+        outcome="LOCAL", odds=Decimal("1.01"),
+    )
+    assert sel.pk is not None
