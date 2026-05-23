@@ -77,7 +77,7 @@ def test_usuario_mayor_de_edad_con_dni_valido_pasa_a_estado_verified():
     
     assert usuario.profile.kyc_status == "VERIFIED"
 
-@given(st.strings(st.digits(), min_size=8, max_size=8))
+@given(st.text(alphabet="0123456789", min_size=8, max_size=8))
 def test_invariante_calcular_digito_verificador_con_hypothesis(dni_aleatorio):
     from apps.accounts.dni import calcular_digito_verificador
     
