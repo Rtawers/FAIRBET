@@ -217,3 +217,24 @@ def test_update_odds_rejects_invalid():
 
     with pytest.raises((ValidationError, ValueError)):
         update_odds(selection, new_odds=Decimal("0.50"))
+
+@pytest.mark.django_db
+def test_event_transition_scheduled_to_live():
+    event = make_event()
+    event.transition_to(EventStatus.LIVE)
+    event.refresh_from_db()
+    assert event.status == EventStatus.LIVE
+
+
+@pytest.mark.django_db
+def test_event_transition_invalid_raises():
+    event = make_event(status=EventStatus.FINISHED)
+    with pytest.raises(ValueError, match="Transición inválida"):
+        event.transition_to(EventStatus.LIVE)
+
+
+@pytest.mark.django_db
+def test_voided_is_terminal():
+    event = make_event(status=EventStatus.VOIDED)
+    with pytest.raises(ValueError):
+        event.transition_to(EventStatus.LIVE)
