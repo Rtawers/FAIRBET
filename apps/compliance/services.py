@@ -16,3 +16,12 @@ def apply_self_exclusion(user, duration_days=None):
         end_date=end_date
     )
     return exclusion
+
+def is_user_self_excluded(user):
+    """
+    Verifica si el usuario tiene alguna autoexclusión activa en este momento.
+    Ignora el historial de exclusiones que ya expiraron.
+    """
+    exclusions = SelfExclusion.objects.filter(user=user)
+ 
+    return any(excl.is_active() for excl in exclusions)
