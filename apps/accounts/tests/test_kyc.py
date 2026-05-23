@@ -13,3 +13,8 @@ def test_calcular_digito_verificador_menos_de_ocho_digitos_lanza_value_error():
     dni_corto = "12345"
     with pytest.raises(ValueError):
         calcular_digito_verificador(dni_corto)
+
+def test_calcular_digito_verificador_con_letras_lanza_value_error():
+    dni_con_letras = "4567891A"
+    with pytest.raises(ValueError, match="El DNI solo debe contener caracteres numericos"):
+        calcular_digito_verificador(dni_con_letras)
