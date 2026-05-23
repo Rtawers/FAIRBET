@@ -57,3 +57,20 @@ def test_usuario_menor_de_edad_es_rechazado_en_kyc_lanza_value_error():
             dni="45678912",
             fecha_nacimiento=fecha_nacimiento_menor
         )
+
+@pytest.mark.django_db
+def test_usuario_mayor_de_edad_con_dni_valido_pasa_a_estado_verified():
+    from datetime import date
+    from apps.accounts.services import registrar_usuario_kyc
+    
+    fecha_nacimiento_valida = date(2000, 1, 1)
+    
+    usuario = registrar_usuario_kyc(
+        username="maicol_valido",
+        email="valido@fairbet.com",
+        password="password123",
+        dni="456789126",
+        fecha_nacimiento=fecha_nacimiento_valida
+    )
+    
+    assert usuario.profile.kyc_status == "VERIFIED"
