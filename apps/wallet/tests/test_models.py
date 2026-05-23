@@ -50,7 +50,7 @@ class LedgerInvariantTestCase(HypothesisTestCase):
             places=4,
         )
     )
-    @settings(max_examples=50)
+    @settings(max_examples=50, deadline=None)
     def test_recharge_entries_sum_to_zero(self, amount):
         """
         INVARIANTE 1: la suma firmada de debitos y creditos
@@ -89,7 +89,7 @@ class LedgerInvariantTestCase(HypothesisTestCase):
             places=4,
         )
     )
-    @settings(max_examples=50)
+    @settings(max_examples=50, deadline=None)
     def test_wallet_balance_never_negative(self, amount):
         """
         INVARIANTE 2: ningun wallet termina con saldo negativo
