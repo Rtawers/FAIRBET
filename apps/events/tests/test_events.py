@@ -4,7 +4,7 @@ from django.utils import timezone
 from django.core.exceptions import ValidationError
 from hypothesis import given, settings as h_settings
 from hypothesis import strategies as st
-
+from decimal import Decimal, ROUND_HALF_UP
 from apps.events.models import Event, Market, Selection, EventStatus, MarketStatus
 from apps.events.services import calculate_margin, update_odds
 
@@ -111,10 +111,9 @@ def test_operator_margin_is_consistent(h, d, a):
         Decimal("1") / a -
         Decimal("1")
     ) * Decimal("100")
-    expected = expected.quantize(Decimal("0.0001"))
+    expected = expected.quantize(Decimal("0.0001"), rounding=ROUND_HALF_UP)
     assert margin == expected
     assert isinstance(margin, Decimal)
-
 
 @pytest.mark.django_db
 def test_update_odds_saves_history():
