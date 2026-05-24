@@ -3,6 +3,12 @@ from django.test import TestCase
 from apps.audit.services import calculate_hash
 from apps.audit.models import AuditLog 
 from apps.audit.services import calculate_hash, verify_chain 
+from django.contrib.auth import get_user_model
+from decimal import Decimal
+from apps.wallet.models import Account, LedgerEntry, Transaction, Bet
+from apps.wallet.services import execute_recharge
+
+User = get_user_model()
 
 class CalculateHashTestCase(TestCase):
     def test_13_hash_se_calcula_con_sha256(self):
@@ -46,3 +52,35 @@ class VerifyChainTestCase(TestCase):
 
         # ASSERT: la cadena debe detectarse como rota
         self.assertFalse(verify_chain())        # pista: verify_chain()
+class AutoAuditTestCase(TestCase):
+    def setUp(self):
+        self.user = User.objects.create_user(username="audit", password="x")
+        Account.objects.create(type=Account.AccountType.CASA)
+        Account.objects.create(type=Account.AccountType.PENDING)
+        Account.objects.create(user=self.user, type=Account.AccountType.WALLET)
+
+    def test_11_cada_ledgerentry_crea_auditlog(self):
+        # ARRANGE: contar audit logs antes
+        antes = AuditLog.objects.count()
+
+        # ACT: una recarga crea 2 LedgerEntries (CASA debit + WALLET credit)
+        execute_recharge(self.user, Decimal("50.0000"))
+
+        # ASSERT: deben haberse creado 2 AuditLog nuevos (uno por cada LedgerEntry)
+        despues = AuditLog.objects.count()
+        self.assertEqual(despues - antes, 2)
+
+    def test_12_cada_bet_crea_auditlog(self):
+        # ARRANGE
+        execute_recharge(self.user, Decimal("100.0000"))
+        tx = Transaction.objects.create(kind=Transaction.Kind.BET_LOCK)
+        antes = AuditLog.objects.count()
+
+        # ACT: crear una Bet
+        Bet.objects.create(
+            user=self.user, amount=Decimal("10.0000"), odds=Decimal("2.0"),
+            lock_transaction=tx,
+        )
+
+        # ASSERT: se creó al menos 1 AuditLog por la Bet
+        self.assertEqual(AuditLog.objects.count() - antes, 1)
