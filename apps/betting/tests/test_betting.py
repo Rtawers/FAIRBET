@@ -16,7 +16,7 @@ from hypothesis.extra.django import TestCase as HypothesisTestCase
 from apps.betting.combined_service import calculate_combined_odds, is_combined_won
 from apps.betting.combined_service import validate_combined_selections
 from apps.events.models import SelectionResult
-from apps.betting.cashout_service import calculate_cashout
+from apps.betting.cashout_service import calculate_cashout, execute_cashout
 
 
 
@@ -188,3 +188,55 @@ class CashoutFormulaTestCase(TestCase):
             factor_casa=Decimal("0.95"),
         )
         self.assertEqual(result, Decimal("12.6667"))
+
+class CashoutTransactionTestCase(TestCase):
+    def setUp(self):
+        self.user = User.objects.create_user(username="cash", password="x")
+        UserProfile.objects.create(user=self.user, dni="33333333", kyc_status="VERIFIED")
+        Account.objects.create(type=Account.AccountType.CASA)
+        Account.objects.create(type=Account.AccountType.PENDING)
+        self.wallet = Account.objects.create(user=self.user, type=Account.AccountType.WALLET)
+        execute_recharge(self.user, Decimal("100.0000"))
+
+    def test_9_cashout_crea_transaccion_balanceada(self):
+        # ARRANGE: apuesta de 10 a odds 2.0, fondos bloqueados
+        stake = Decimal("10.0000")
+        lock_tx = execute_bet_lock(self.user, stake)
+        bet = Bet.objects.create(
+            user=self.user, amount=stake, odds=Decimal("2.0"),
+            lock_transaction=lock_tx,
+        )
+
+        # ACT: cash-out con odds_actual=1.5, factor_casa=0.95
+        #   cashout = 10 * 2.0 / 1.5 * 0.95 = 12.6667
+        tx = execute_cashout(bet, odds_actual=Decimal("1.5"), factor_casa=Decimal("0.95"))
+
+        # ASSERT 1: los asientos de la transacción suman cero (partida doble)
+        entries = tx.entries.all()
+        total = Decimal("0")
+        for e in entries:
+            if e.direction == LedgerEntry.Direction.CREDIT:
+                total += e.amount
+            else:
+                total -= e.amount
+        self.assertEqual(total, Decimal("0"))
+
+        # ASSERT 2: la Bet quedó CANCELLED
+        bet.refresh_from_db()
+        self.assertEqual(bet.status, Bet.BetStatus.CANCELLED)
+
+        # ASSERT 3: saldo final = 100 - 10 (bloqueo) + 12.6667 (cashout) = 102.6667
+        self.assertEqual(_get_balance(self.wallet), Decimal("102.6667"))
+
+    def test_10_no_se_puede_cashout_bet_ya_liquidada(self):
+        # ARRANGE: una Bet que ya fue liquidada (status WON)
+        stake = Decimal("10.0000")
+        lock_tx = execute_bet_lock(self.user, stake)
+        bet = Bet.objects.create(
+            user=self.user, amount=stake, odds=Decimal("2.0"),
+            lock_transaction=lock_tx, status=Bet.BetStatus.WON,  # ya liquidada
+        )
+
+        # ACT + ASSERT: intentar cash-out debe lanzar ValueError
+        with self.assertRaises(ValueError):
+            execute_cashout(bet, odds_actual=Decimal("1.5"), factor_casa=Decimal("0.95"))
