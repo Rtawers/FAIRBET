@@ -8,13 +8,15 @@ from django.utils import timezone
 from datetime import timedelta
 from apps.events.models import Event, Market, Selection, EventStatus
 from decimal import Decimal
-from apps.wallet.models import Account, Bet
-from apps.wallet.services import execute_recharge
+from apps.wallet.models import Account, Bet, LedgerEntry, Transaction
+from apps.wallet.services import execute_recharge, execute_bet_settlement, execute_bet_lock
+from apps.wallet.services import _get_balance
 from hypothesis import given, strategies as st
 from hypothesis.extra.django import TestCase as HypothesisTestCase
 from apps.betting.combined_service import calculate_combined_odds, is_combined_won
 from apps.betting.combined_service import validate_combined_selections
 from apps.events.models import SelectionResult
+from apps.betting.cashout_service import calculate_cashout
 
 
 
@@ -143,3 +145,46 @@ class CombinedValidationTestCase(TestCase):
 
         with self.assertRaises(ValidationError):
             validate_combined_selections([sel_local, sel_away])
+        
+class CombinedSettlementTestCase(TestCase):
+    def setUp(self):
+        self.user = User.objects.create_user(username="combo", password="x")
+        UserProfile.objects.create(user=self.user, dni="22222222", kyc_status="VERIFIED")
+        Account.objects.create(type=Account.AccountType.CASA)
+        Account.objects.create(type=Account.AccountType.PENDING)
+        self.wallet = Account.objects.create(user=self.user, type=Account.AccountType.WALLET)
+        execute_recharge(self.user, Decimal("100.0000"))
+
+    def test_7_liquidacion_combinada_ganadora_paga_correctamente(self):
+        # ARRANGE: combinada de cuotas 2.0 y 3.0 -> cuota combinada = 6.0
+        odds_individuales = [Decimal("2.0"), Decimal("3.0")]
+        cuota_combinada = calculate_combined_odds(odds_individuales)  # 6.0
+        stake = Decimal("10.0000")
+
+        # Bloquear fondos y crear la Bet combinada con la cuota combinada como odds
+        lock_tx = execute_bet_lock(self.user, stake)
+        bet = Bet.objects.create(
+            user=self.user, amount=stake, odds=cuota_combinada,
+            lock_transaction=lock_tx,
+        )
+
+        # ACT: liquidar como ganadora
+        execute_bet_settlement(bet, won=True)
+
+        # ASSERT: la Bet quedó WON y el payout fue stake * cuota_combinada = 60
+        bet.refresh_from_db()
+        self.assertEqual(bet.status, Bet.BetStatus.WON)
+        # saldo final = 100 - 10 (bloqueo) + 60 (payout) = 150
+        self.assertEqual(_get_balance(self.wallet), Decimal("150.0000"))
+
+class CashoutFormulaTestCase(TestCase):
+    def test_8_formula_cashout(self):
+        # stake=10, odds_original=2.0, odds_actual=1.5, factor_casa=0.95
+        # cashout = 10 * 2.0 / 1.5 * 0.95 = 12.6666... -> 12.6667 (4 decimales)
+        result = calculate_cashout(
+            stake=Decimal("10.0000"),
+            odds_original=Decimal("2.0"),
+            odds_actual=Decimal("1.5"),
+            factor_casa=Decimal("0.95"),
+        )
+        self.assertEqual(result, Decimal("12.6667"))
