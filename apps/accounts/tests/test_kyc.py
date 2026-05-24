@@ -8,3 +8,8 @@ def test_calcular_digito_verificador_retorna_un_solo_caracter():
     assert isinstance(resultado, str)
     assert len(resultado) == 1
     assert resultado in "0123456789K"
+
+def test_calcular_digito_verificador_menos_de_ocho_digitos_lanza_value_error():
+    dni_corto = "12345"
+    with pytest.raises(ValueError):
+        calcular_digito_verificador(dni_corto)
