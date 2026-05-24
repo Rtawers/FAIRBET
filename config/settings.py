@@ -162,3 +162,11 @@ MONEY_DECIMAL_PLACES = 4
 RESPONSIBLE_GAMING_FOOTER = (
     "Plataforma educativa con moneda virtual. No constituye una casa de apuestas."
 )
+import sys
+if "pytest" in sys.modules:
+    CHANNEL_LAYERS = {
+        "default": {
+            "BACKEND": "channels.layers.InMemoryChannelLayer",
+        }
+    }
+    ALLOWED_HOSTS = ["*"]

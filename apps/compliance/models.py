@@ -18,7 +18,6 @@ class SelfExclusion(models.Model):
         if self.end_date is None:
             return True
         return now < self.end_date
-
     class Meta:
         ordering = ['-created_at']
 

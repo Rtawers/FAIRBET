@@ -10,9 +10,9 @@ from channels.auth import AuthMiddlewareStack  # noqa: E402
 from channels.routing import ProtocolTypeRouter, URLRouter  # noqa: E402
 from channels.security.websocket import AllowedHostsOriginValidator  # noqa: E402
 
-# Rutas WebSocket por app (events, betting). Ej:
+# Rutas WebSocket por app (events, betting). Ej:-
 # from apps.events.routing import websocket_urlpatterns
-websocket_urlpatterns = []
+from apps.events.routing import websocket_urlpatterns
 
 application = ProtocolTypeRouter(
     {
