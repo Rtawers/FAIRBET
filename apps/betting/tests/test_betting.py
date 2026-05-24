@@ -2,13 +2,16 @@ from django.test import TestCase
 from django.contrib.auth import get_user_model
 from django.core.exceptions import PermissionDenied
 from django.core.exceptions import ValidationError
-
 from apps.accounts.models import UserProfile
 from apps.betting.services import place_bet
-
 from django.utils import timezone
 from datetime import timedelta
 from apps.events.models import Event, Market, Selection, EventStatus
+from decimal import Decimal
+from apps.wallet.models import Account, Bet
+from apps.wallet.services import execute_recharge
+
+
 
 User = get_user_model()
 
@@ -22,7 +25,7 @@ class PlaceBetKycTestCase(TestCase):
 
         # ACT + ASSERT: apostar debe lanzar PermissionDenied
         with self.assertRaises(PermissionDenied):
-            place_bet(user, None)  # el segundo argumento no se usa en esta validación
+            place_bet(user, None, Decimal("10.0000"))  # el segundo argumento no se usa en esta validación
 
 class PlaceBetEventTestCase(TestCase):
     def setUp(self):
@@ -47,4 +50,39 @@ class PlaceBetEventTestCase(TestCase):
 
         # ACT + ASSERT: apostar debe lanzar ValidationError
         with self.assertRaises(ValidationError):
-            place_bet(self.user, selection)
+            place_bet(self.user, selection, Decimal("10.0000"))
+    
+class PlaceBetCreatesBetTestCase(TestCase):
+    def setUp(self):
+        # Usuario verificado
+        self.user = User.objects.create_user(username="luis", password="x")
+        UserProfile.objects.create(user=self.user, dni="11111111", kyc_status="VERIFIED")
+
+        # Cuentas del sistema (CASA y PENDING) — necesarias para la partida doble
+        Account.objects.create(type=Account.AccountType.CASA)
+        Account.objects.create(type=Account.AccountType.PENDING)
+        # Wallet del usuario
+        Account.objects.create(user=self.user, type=Account.AccountType.WALLET)
+
+        # Recargar saldo para que tenga fondos suficientes
+        execute_recharge(self.user, Decimal("100.0000"))
+
+        # Selección sobre evento SCHEDULED
+        evento = Event.objects.create(
+            name="Final", home_team="A", away_team="B",
+            starts_at=timezone.now() + timedelta(days=1),
+            status=EventStatus.SCHEDULED,
+        )
+        market = Market.objects.create(event=evento, name="1X2", market_type="1x2")
+        self.selection = Selection.objects.create(
+            market=market, name="Local", outcome="LOCAL", odds="2.50"
+        )
+
+    def test_3_apuesta_simple_crea_bet_en_estado_accepted(self):
+        # ACT: colocar una apuesta de 20 fichas
+        bet = place_bet(self.user, self.selection, Decimal("20.0000"))
+
+        # ASSERT: se creó una Bet en estado ACCEPTED
+        self.assertEqual(bet.status, Bet.BetStatus.ACCEPTED)
+        self.assertEqual(bet.amount, Decimal("20.0000"))
+        self.assertEqual(bet.odds, Decimal("2.50"))
