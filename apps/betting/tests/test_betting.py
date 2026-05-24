@@ -12,7 +12,9 @@ from apps.wallet.models import Account, Bet
 from apps.wallet.services import execute_recharge
 from hypothesis import given, strategies as st
 from hypothesis.extra.django import TestCase as HypothesisTestCase
-from apps.betting.combined_service import calculate_combined_odds
+from apps.betting.combined_service import calculate_combined_odds, is_combined_won
+from apps.betting.combined_service import validate_combined_selections
+from apps.events.models import SelectionResult
 
 
 
@@ -108,3 +110,36 @@ class CombinedOddsTestCase(HypothesisTestCase):
             expected *= odd
 
         self.assertEqual(result, expected)
+
+class CombinedResultTestCase(TestCase):
+    def test_5_si_una_seleccion_pierde_toda_la_combinada_pierde(self):
+        # ARRANGE: tres resultados, una de ellas perdió
+        resultados = [
+            SelectionResult.WON,
+            SelectionResult.LOST,   # <- esta rompe la combinada
+            SelectionResult.WON,
+        ]
+
+        # ACT + ASSERT: la combinada NO ganó
+        self.assertFalse(is_combined_won(resultados))
+
+    def test_5b_combinada_gana_solo_si_todas_ganan(self):
+        # Caso complementario: todas ganaron -> la combinada gana
+        resultados = [SelectionResult.WON, SelectionResult.WON, SelectionResult.WON]
+        self.assertTrue(is_combined_won(resultados))
+
+class CombinedValidationTestCase(TestCase):
+    def _selection(self, event, outcome):
+        market = Market.objects.create(event=event, name="1X2", market_type=f"1x2-{outcome}")
+        return Selection.objects.create(market=market, name=outcome, outcome=outcome, odds="2.0")
+
+    def test_6_no_se_puede_combinar_selecciones_del_mismo_evento(self):
+        evento = Event.objects.create(
+            name="A vs B", home_team="A", away_team="B",
+            starts_at=timezone.now() + timedelta(days=1), status=EventStatus.SCHEDULED,
+        )
+        sel_local = self._selection(evento, "LOCAL")
+        sel_away = self._selection(evento, "AWAY")  # mismo evento -> conflicto
+
+        with self.assertRaises(ValidationError):
+            validate_combined_selections([sel_local, sel_away])
