@@ -14,8 +14,10 @@ class SelfExclusion(models.Model):
 
     def is_active(self):
         now = timezone.now()
+        # Indefinida: siempre activa. Temporal: activa si aún no llega la fecha de fin.
         if self.end_date is None:
             return True
+        return now < self.end_date
 
     class Meta:
         ordering = ['-created_at']

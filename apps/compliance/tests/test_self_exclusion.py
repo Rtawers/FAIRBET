@@ -36,7 +36,7 @@ class SelfExclusionTests(TestCase):
         exclusion = SelfExclusion.objects.create(user=self.user, end_date=past_date)
         self.assertFalse(exclusion.is_active())
 
-   def test_4_5_verificar_estado_autoexclusion_usuario(self):
+    def test_4_5_verificar_estado_autoexclusion_usuario(self):
         """4 y 5 Usuario sin/con exclusión activa retorna False/True RED → GREEN"""
         self.assertFalse(is_user_self_excluded(self.user))
 
