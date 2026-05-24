@@ -10,6 +10,10 @@ from apps.events.models import Event, Market, Selection, EventStatus
 from decimal import Decimal
 from apps.wallet.models import Account, Bet
 from apps.wallet.services import execute_recharge
+from hypothesis import given, strategies as st
+from hypothesis.extra.django import TestCase as HypothesisTestCase
+from apps.betting.combined_service import calculate_combined_odds
+
 
 
 
@@ -86,3 +90,21 @@ class PlaceBetCreatesBetTestCase(TestCase):
         self.assertEqual(bet.status, Bet.BetStatus.ACCEPTED)
         self.assertEqual(bet.amount, Decimal("20.0000"))
         self.assertEqual(bet.odds, Decimal("2.50"))
+    
+class CombinedOddsTestCase(HypothesisTestCase):
+    @given(
+        st.lists(
+            st.decimals(min_value=Decimal("1.01"), max_value=Decimal("100.00"), places=2),
+            min_size=2, max_size=5,
+        )
+    )
+    def test_4_cuota_combinada_es_producto_de_individuales(self, odds_list):
+        # ACT: calcular la cuota combinada
+        result = calculate_combined_odds(odds_list)
+
+        # ASSERT: debe ser igual al producto de todas las cuotas
+        expected = Decimal("1")
+        for odd in odds_list:
+            expected *= odd
+
+        self.assertEqual(result, expected)
