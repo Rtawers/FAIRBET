@@ -11,3 +11,17 @@ class SelfExclusionSerializer(serializers.Serializer):
         if value is not None and value <= 0:
             raise serializers.ValidationError("La duración debe ser un número positivo.")
         return value
+
+
+class DepositLimitUpdateSerializer(serializers.Serializer):
+    amount = serializers.DecimalField(
+        max_digits=18, 
+        decimal_places=4, 
+        required=True,
+        help_text="Monto del límite diario."
+    )
+
+    def validate_amount(self, value):
+        if value <= 0:
+            raise serializers.ValidationError("El monto debe ser mayor a cero.")
+        return value
