@@ -5,7 +5,6 @@ from rest_framework.response import Response
 from rest_framework import status
 from rest_framework.throttling import ScopedRateThrottle
 
-# --- NUEVOS IMPORTS PARA EL LOGIN JWT ---
 from rest_framework_simplejwt.views import TokenObtainPairView
 
 def calcular_modulo11_reniec(dni_str):
@@ -77,7 +76,6 @@ def verify_kyc(request):
     return Response({"error": "DNI inválido por algoritmo Módulo 11"}, status=status.HTTP_400_BAD_REQUEST)
 
 
-# --- NUEVA VISTA DE LOGIN CON RATE LIMITING ---
 class LoginThrottleView(TokenObtainPairView):
     throttle_classes = [ScopedRateThrottle]
     throttle_scope = "auth"

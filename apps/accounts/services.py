@@ -19,7 +19,6 @@ def registrar_usuario_kyc(username, email, password, dni, fecha_nacimiento):
         
     usuario = User.objects.create_user(username=username, email=email, password=password)
     
-    # Usamos update_or_create para evitar colisiones con las señales (Signals) de Django
     perfil, created = UserProfile.objects.update_or_create(
         user=usuario,
         defaults={
@@ -28,4 +27,4 @@ def registrar_usuario_kyc(username, email, password, dni, fecha_nacimiento):
         }
     )
     
-    return usuario
+    return usuario 
