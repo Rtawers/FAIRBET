@@ -8,6 +8,8 @@ from decimal import Decimal
 from apps.wallet.models import Account, LedgerEntry, Transaction, Bet
 from apps.wallet.services import execute_recharge
 
+from rest_framework.test import APIClient
+
 User = get_user_model()
 
 class CalculateHashTestCase(TestCase):
@@ -84,3 +86,34 @@ class AutoAuditTestCase(TestCase):
 
         # ASSERT: se creó al menos 1 AuditLog por la Bet
         self.assertEqual(AuditLog.objects.count() - antes, 1)
+
+#--------------------Test Endpoint---------------------------------------------------
+
+class VerifyChainEndpointTestCase(TestCase):
+    def setUp(self):
+        self.client = APIClient()
+        # Usuario admin (is_staff=True es lo que IsAdminUser valida)
+        self.admin = User.objects.create_user(
+            username="admin", password="x", is_staff=True
+        )
+
+    def _crear_log(self, previous_hash, payload):
+        current = calculate_hash(previous_hash, payload)
+        return AuditLog.objects.create(
+            previous_hash=previous_hash, payload=payload, current_hash=current,
+        )
+
+    def test_15_endpoint_verifica_cadena_integra(self):
+        # ARRANGE: una cadena bien encadenada
+        log1 = self._crear_log("0" * 64, "evento_1")
+        self._crear_log(log1.current_hash, "evento_2")
+
+        # Autenticar como admin
+        self.client.force_authenticate(user=self.admin)
+
+        # ACT: llamar al endpoint
+        response = self.client.get("/api/audit/verify/")
+
+        # ASSERT: responde 200 y dice que la cadena es íntegra
+        self.assertEqual(response.status_code, 200)
+        self.assertTrue(response.data["integra"])

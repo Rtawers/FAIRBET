@@ -1,5 +1,10 @@
-from django.urls import path  # noqa: F401
+from django.urls import path  
+from apps.betting.views import place_bet_view, cashout_view, my_bets_view
 
 app_name = "betting"
 
-urlpatterns = []
+urlpatterns = [
+    path("bets/", place_bet_view, name="place-bet"),
+    path("bets/mine/", my_bets_view, name="my-bets"),
+    path("cashout/", cashout_view, name="cashout"),
+]
