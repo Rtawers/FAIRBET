@@ -1,5 +1,8 @@
-from django.urls import path  # noqa: F401
+from django.urls import path
+from .views import SelfExclusionAPIView
 
-app_name = "compliance"
+app_name = 'compliance'
 
-urlpatterns = []
+urlpatterns = [
+    path('self-exclusion/', SelfExclusionAPIView.as_view(), name='self_exclusion'),
+]
