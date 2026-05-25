@@ -1,8 +1,12 @@
 from django.contrib.auth.models import User
-from rest_framework.decorators import api_view, permission_classes
+from rest_framework.decorators import api_view, permission_classes, throttle_classes
 from rest_framework.permissions import AllowAny, IsAuthenticated
 from rest_framework.response import Response
 from rest_framework import status
+from rest_framework.throttling import ScopedRateThrottle
+
+# --- NUEVOS IMPORTS PARA EL LOGIN JWT ---
+from rest_framework_simplejwt.views import TokenObtainPairView
 
 def calcular_modulo11_reniec(dni_str):
     """
@@ -27,7 +31,10 @@ def calcular_modulo11_reniec(dni_str):
 
 @api_view(['POST'])
 @permission_classes([AllowAny])
+@throttle_classes([ScopedRateThrottle])
 def register_user(request):
+    register_user.throttle_scope = "auth"
+
     username = request.data.get('username')
     email = request.data.get('email')
     password = request.data.get('password')
@@ -68,3 +75,9 @@ def verify_kyc(request):
         }, status=status.HTTP_200_OK)
         
     return Response({"error": "DNI inválido por algoritmo Módulo 11"}, status=status.HTTP_400_BAD_REQUEST)
+
+
+# --- NUEVA VISTA DE LOGIN CON RATE LIMITING ---
+class LoginThrottleView(TokenObtainPairView):
+    throttle_classes = [ScopedRateThrottle]
+    throttle_scope = "auth"

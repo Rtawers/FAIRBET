@@ -19,10 +19,13 @@ def registrar_usuario_kyc(username, email, password, dni, fecha_nacimiento):
         
     usuario = User.objects.create_user(username=username, email=email, password=password)
     
-    perfil = UserProfile.objects.create(
-        user=usuario, 
-        dni=dni,
-        kyc_status="VERIFIED"
+    # Usamos update_or_create para evitar colisiones con las señales (Signals) de Django
+    perfil, created = UserProfile.objects.update_or_create(
+        user=usuario,
+        defaults={
+            "dni": dni,
+            "kyc_status": "VERIFIED"
+        }
     )
     
     return usuario
