@@ -49,3 +49,20 @@ def _broadcast_odds_update(selection: Selection) -> None:
         )
     except Exception:
         pass
+
+def suspend_market(market):
+    from apps.events.models import MarketStatus
+    market.status = MarketStatus.SUSPENDED
+    market.save(update_fields=["status", "updated_at"])
+    return market
+
+
+def reopen_market(market):
+    from apps.events.models import MarketStatus
+    if market.status != MarketStatus.SUSPENDED:
+        raise ValueError(
+            f"Solo se puede reabrir un mercado SUSPENDED. Estado actual: {market.status}"
+        )
+    market.status = MarketStatus.OPEN
+    market.save(update_fields=["status", "updated_at"])
+    return market
