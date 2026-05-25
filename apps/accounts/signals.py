@@ -15,8 +15,12 @@ def create_user_profile(sender, instance, created, **kwargs):
         UserProfile.objects.get_or_create(
             user=instance,
             defaults={
-                "kyc_status": "PENDING_VERIFICATION"
+                "dni": f"PENDING-{instance.id}",
+                "kyc_status": "PENDING_VERIFICATION",
             }
-        ) 
+        )
 
-        
+
+
+
+
