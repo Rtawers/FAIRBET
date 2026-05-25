@@ -18,7 +18,7 @@ from apps.betting.combined_service import validate_combined_selections
 from apps.events.models import SelectionResult
 from apps.betting.cashout_service import calculate_cashout, execute_cashout
 
-
+from rest_framework.test import APIClient
 
 
 User = get_user_model()
@@ -240,3 +240,70 @@ class CashoutTransactionTestCase(TestCase):
         # ACT + ASSERT: intentar cash-out debe lanzar ValueError
         with self.assertRaises(ValueError):
             execute_cashout(bet, odds_actual=Decimal("1.5"), factor_casa=Decimal("0.95"))
+
+#--------------------------------------------------------------------------------
+
+class PlaceBetEndpointTestCase(TestCase):
+    def setUp(self):
+        self.client = APIClient()
+        self.user = User.objects.create_user(username="apostador", password="x")
+        UserProfile.objects.create(user=self.user, dni="44444444", kyc_status="VERIFIED")
+        Account.objects.create(type=Account.AccountType.CASA)
+        Account.objects.create(type=Account.AccountType.PENDING)
+        Account.objects.create(user=self.user, type=Account.AccountType.WALLET)
+        execute_recharge(self.user, Decimal("100.0000"))
+
+        evento = Event.objects.create(
+            name="Final", home_team="A", away_team="B",
+            starts_at=timezone.now() + timedelta(days=1), status=EventStatus.SCHEDULED,
+        )
+        market = Market.objects.create(event=evento, name="1X2", market_type="1x2")
+        self.selection = Selection.objects.create(
+            market=market, name="Local", outcome="LOCAL", odds="2.50"
+        )
+
+    def test_endpoint_apostar_crea_bet(self):
+        self.client.force_authenticate(user=self.user)
+
+        response = self.client.post("/api/betting/bets/", {
+            "selection_id": self.selection.id,
+            "amount": "20.0000",
+        }, format="json")
+
+        # ASSERT: responde 201 (creado) y la bet quedó ACCEPTED
+        self.assertEqual(response.status_code, 201)
+        self.assertEqual(response.data["status"], "ACCEPTED")
+
+class CashoutAndListEndpointTestCase(TestCase):
+    def setUp(self):
+        self.client = APIClient()
+        self.user = User.objects.create_user(username="cb", password="x")
+        UserProfile.objects.create(user=self.user, dni="55555555", kyc_status="VERIFIED")
+        Account.objects.create(type=Account.AccountType.CASA)
+        Account.objects.create(type=Account.AccountType.PENDING)
+        Account.objects.create(user=self.user, type=Account.AccountType.WALLET)
+        execute_recharge(self.user, Decimal("100.0000"))
+
+    def test_endpoint_cashout(self):
+        lock_tx = execute_bet_lock(self.user, Decimal("10.0000"))
+        bet = Bet.objects.create(
+            user=self.user, amount=Decimal("10.0000"), odds=Decimal("2.0"),
+            lock_transaction=lock_tx,
+        )
+        self.client.force_authenticate(user=self.user)
+        response = self.client.post("/api/betting/cashout/", {
+            "bet_id": bet.id, "odds_actual": "1.5", "factor_casa": "0.95",
+        }, format="json")
+        self.assertEqual(response.status_code, 200)
+
+    def test_endpoint_listar_mis_apuestas(self):
+        lock_tx = execute_bet_lock(self.user, Decimal("10.0000"))
+        Bet.objects.create(
+            user=self.user, amount=Decimal("10.0000"), odds=Decimal("2.0"),
+            lock_transaction=lock_tx,
+        )
+        self.client.force_authenticate(user=self.user)
+        response = self.client.get("/api/betting/bets/mine/")
+        self.assertEqual(response.status_code, 200)
+        self.assertEqual(len(response.data), 1)
+
