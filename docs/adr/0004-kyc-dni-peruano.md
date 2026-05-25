@@ -1,40 +1,48 @@
-# ADR-0003: Estrategia de Concurrencia — Bloqueo Pesimista
+# ADR-0004 — Arquitectura de Registro y KYC con Validación de DNI Peruano (Módulo 11)
+
+**Fecha:** 2026-05-23  
+**Autor:** MaicolRafael  
+**Estado:** Aceptado  
+
+---
 
 ## Contexto
-Multiples usuarios pueden intentar apostar simultaneamente con el
-mismo saldo. Necesitamos prevenir el doble gasto sin sacrificar
-consistencia.
+
+El sistema FairBet requiere cumplir con las normativas de la Ley 31557 y su reglamento DS 005-2023-MINCETUR en el Perú. Esto exige validar la mayoría de edad (>= 18 años) y comprobar la identidad mediante el algoritmo matemático oficial del DNI peruano antes de aprobar un usuario.
+
+---
 
 ## Opciones consideradas
 
-1. **Concurrencia optimista (version columns)**
-   - Pros: mejor throughput en baja contension.
-   - Contras: requiere logica de reintento explicita. Las race
-     conditions se detectan tarde (al hacer commit). Mas complejo
-     de testear correctamente.
+### A — Validación básica por longitud (descartada)
+Validar solo que el DNI tenga 9 caracteres alfabéticos o numéricos cualesquiera.
+- **Pros:** Muy simple de programar.
+- **Contras:** Permite que cualquier usuario invente un DNI aleatorio y se registre falsamente, violando las normas anti-fraude.
 
-2. **Bloqueo pesimista con select_for_update() dentro de atomic()**
-   - Pros: PostgreSQL bloquea la fila a nivel BD. Cualquier peticion
-     concurrente espera o falla limpiamente. Logica de servicio
-     simple y lineal. Demostrable con test de threads.
-   - Contras: posible cuello de botella si muchos workers leen el
-     mismo wallet simultaneamente (no es el caso a esta escala).
+### B — Algoritmo Oficial Módulo 11 Integrado en Servicios ✓ (elegida)
+Implementar la lógica del dígito verificador oficial del padrón peruano acompañado de una máquina de estados para el perfil de usuario.
+- **Pros:** Garantiza la legitimidad matemática del documento sin llamadas lentas a APIs externas durante los tests.
+- **Contras:** Requiere programar y testear manualmente matrices de pesos y conversiones de residuos.
 
-## Decision
-Adoptamos **select_for_update()** dentro de **transaction.atomic()**
-en todos los servicios criticos: execute_recharge, execute_bet_lock
-y execute_bet_settlement.
+---
 
-El test de concurrencia (10 threads simultaneos con saldo de 100
-apostando 20 cada uno) demuestra que nunca se genera doble gasto.
+## Decisiones Técnicas y Defensa Oral (Respuestas Clave para el Profesor)
+
+### 1. ¿Qué es el algoritmo Módulo 11?
+Es un mecanismo de detección de errores por suma de verificación por pesos. Toma los primeros 8 dígitos del DNI, multiplica cada uno por un peso fijo asignado de derecha a izquierda `[3, 2, 7, 6, 5, 4, 3, 2]`, suma los resultados, calcula el residuo al dividir entre 11 (`Suma % 11`) y resta `11 - Residuo` para obtener el dígito de control. Si el resultado es idéntico al noveno carácter introducido por el usuario, el DNI es matemáticamente válido.
+
+### 2. ¿Por qué el dígito verificador puede ser K?
+Cuando la operación matemática `11 - Residuo` da como resultado exactamente **10**, no se puede colocar un número de dos dígitos en un espacio destinado a un solo carácter. Por lo tanto, el estándar del algoritmo del DNI peruano reemplaza el valor numérico 10 por la letra **"K"** para mantener el diseño de un solo carácter verificador.
+
+### 3. ¿Qué estados puede tener un UserProfile y por qué?
+Nuestro modelo implementa tres estados obligatorios en su ciclo de vida:
+- **`PENDING_VERIFICATION` (Pendiente):** Es el estado nativo y seguro con el que nacen todos los usuarios al registrarse. Evita que un perfil opere o gaste saldo antes de ser evaluado.
+- **`VERIFIED` (Verificado):** El usuario pasa automáticamente aquí si es mayor de edad exacto al día de hoy, su DNI supera el filtro matemático Módulo 11 y es único en el sistema.
+- **`REJECTED` (Rechazado):** Estado de bloqueo preventivo si se detecta un intento de fraude de identidad, documentos inválidos o alteración de datos.
+
+---
 
 ## Consecuencias
-- Mas facil: demostrar la invariante "ningun wallet termina negativo".
-- Mas dificil: si en el futuro un servicio necesita lockear wallet
-  y Bet simultaneamente, hay que definir orden de adquisicion para
-  evitar deadlocks.
-- Deuda tecnica: orden de locks documentado aqui para futura referencia:
-  siempre wallet antes que Bet.
-
-## Fecha y autor
-2026-05-23 - Lennart Fustamante
+- **Más fácil:** Bloquear accesos ilegales en la capa de servicios antes de tocar el balance de dinero.
+- **Más difícil:** Asegurar que las fechas se calculen de forma dinámica sin quemar años fijos en los tests.
+- **Deuda técnica:** El mapeo manual de la letra "K" debe mantenerse inalterado en el código fuente.
