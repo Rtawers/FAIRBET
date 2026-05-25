@@ -21,3 +21,21 @@ class ComplianceViewsTests(APITestCase):
         self.assertEqual(response.data['message'], "Autoexclusión aplicada exitosamente")
         
         self.assertTrue(SelfExclusion.objects.filter(user=self.user).exists())
+
+    def test_2_obtener_limite_deposito_via_api(self):
+        """El usuario puede ver sus límites de depósito actuales mediante GET RED → GREEN"""
+        limit_url = '/api/compliance/deposit-limit/'
+        response = self.client.get(limit_url)
+        
+        self.assertEqual(response.status_code, status.HTTP_200_OK)
+        self.assertIn('active_limit', response.data)
+        self.assertIn('pending_limit', response.data)
+
+    def test_3_configurar_limite_deposito_via_api(self):
+        """El usuario puede configurar un nuevo límite de depósito mediante POST RED → GREEN"""
+        limit_url = '/api/compliance/deposit-limit/'
+        data = {'amount': '500.0000'}
+        response = self.client.post(limit_url, data, format='json')
+        
+        self.assertEqual(response.status_code, status.HTTP_200_OK)
+        self.assertEqual(response.data['message'], "Límite configurado exitosamente")
