@@ -149,8 +149,8 @@ REST_FRAMEWORK = {
     "DEFAULT_THROTTLE_RATES": {
         "anon": "30/min",
         "user": "120/min",
-        # "bet": "10/min",   # rate limiting agresivo en apuesta (ScopedRateThrottle)
-        # "auth": "5/min",
+        "bet": "10/min",   # rate limiting agresivo en apuesta (ScopedRateThrottle)
+        "auth": "5/min",
     },
 }
 
