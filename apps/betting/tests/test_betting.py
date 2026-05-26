@@ -7,12 +7,12 @@ from django.utils import timezone
 from datetime import timedelta
 from decimal import Decimal
 
-from hypothesis import given, strategies as st
+from hypothesis import given, strategies as st, settings, HealthCheck
 from hypothesis.extra.django import TestCase as HypothesisTestCase
 
-from rest_framework.test import APIClient
 
-from apps.accounts.models import UserProfile
+
+from rest_framework.test import APIClient
 
 from apps.events.models import (
     Event,
@@ -65,10 +65,8 @@ class PlaceBetKycTestCase(TestCase):
             password="x"
         )
 
-        UserProfile.objects.create(
-            user=user,
-            dni="12345678"
-        )
+        user.profile.dni = "12345678"
+        user.profile.save()
 
         # ACT + ASSERT
         with self.assertRaises(PermissionDenied):
@@ -88,11 +86,9 @@ class PlaceBetEventTestCase(TestCase):
             password="x"
         )
 
-        UserProfile.objects.create(
-            user=self.user,
-            dni="87654321",
-            kyc_status="VERIFIED"
-        )
+        self.user.profile.dni = "87654321"
+        self.user.profile.kyc_status = "VERIFIED"
+        self.user.profile.save()
 
     def _crear_selection(self, event_status):
 
@@ -138,11 +134,9 @@ class PlaceBetCreatesBetTestCase(TestCase):
             password="x"
         )
 
-        UserProfile.objects.create(
-            user=self.user,
-            dni="11111111",
-            kyc_status="VERIFIED"
-        )
+        self.user.profile.dni = "11111111"
+        self.user.profile.kyc_status = "VERIFIED"
+        self.user.profile.save()
 
         Account.objects.create(type=Account.AccountType.CASA)
         Account.objects.create(type=Account.AccountType.PENDING)
@@ -204,6 +198,7 @@ class PlaceBetCreatesBetTestCase(TestCase):
 
 class CombinedOddsTestCase(HypothesisTestCase):
 
+    @settings(suppress_health_check=[HealthCheck.too_slow])
     @given(
         st.lists(
             st.decimals(
@@ -303,11 +298,9 @@ class CombinedSettlementTestCase(TestCase):
             password="x"
         )
 
-        UserProfile.objects.create(
-            user=self.user,
-            dni="22222222",
-            kyc_status="VERIFIED"
-        )
+        self.user.profile.dni = "22222222"
+        self.user.profile.kyc_status = "VERIFIED"
+        self.user.profile.save()
 
         Account.objects.create(type=Account.AccountType.CASA)
         Account.objects.create(type=Account.AccountType.PENDING)
@@ -391,11 +384,9 @@ class CashoutTransactionTestCase(TestCase):
             password="x"
         )
 
-        UserProfile.objects.create(
-            user=self.user,
-            dni="33333333",
-            kyc_status="VERIFIED"
-        )
+        self.user.profile.dni = "33333333"
+        self.user.profile.kyc_status = "VERIFIED"
+        self.user.profile.save()
 
         Account.objects.create(type=Account.AccountType.CASA)
         Account.objects.create(type=Account.AccountType.PENDING)
@@ -498,11 +489,9 @@ class PlaceBetEndpointTestCase(TestCase):
             password="x"
         )
 
-        UserProfile.objects.create(
-            user=self.user,
-            dni="44444444",
-            kyc_status="VERIFIED"
-        )
+        self.user.profile.dni = "44444444"
+        self.user.profile.kyc_status = "VERIFIED"
+        self.user.profile.save()
 
         Account.objects.create(type=Account.AccountType.CASA)
         Account.objects.create(type=Account.AccountType.PENDING)
@@ -629,30 +618,41 @@ class PlaceBetEndpointTestCase(TestCase):
             1
         )
 
-    
     @skip("DRF throttle cache no persiste correctamente entre requests en tests con APIClient. Verificado manualmente en runtime.")
     def test_endpoint_apostar_rate_limit_429(self):
+
         from django.core.cache import cache
-        cache.clear()  # contador de throttle limpio antes de empezar
+
+        cache.clear()
 
         self.client.force_authenticate(user=self.user)
 
-        # El scope "bet" permite 10/min. Hacemos 10 permitidas + 1 que debe fallar.
-        # Recargamos saldo suficiente para no fallar por fondos.
-        execute_recharge(self.user, Decimal("10000.0000"))
+        execute_recharge(
+            self.user,
+            Decimal("10000.0000")
+        )
 
         ultimo_status = None
+
         for i in range(11):
+
             response = self.client.post(
                 "/api/betting/bets/",
-                {"selection_id": self.selection.id, "amount": "1.0000"},
+                {
+                    "selection_id": self.selection.id,
+                    "amount": "1.0000"
+                },
                 format="json",
-                HTTP_IDEMPOTENCY_KEY=f"clave-{i}",  # llave distinta por petición
+                HTTP_IDEMPOTENCY_KEY=f"clave-{i}",
             )
+
             ultimo_status = response.status_code
 
-        # La petición número 11 debe ser rechazada por rate limiting
-        self.assertEqual(ultimo_status, 429)
+        self.assertEqual(
+            ultimo_status,
+            429
+        )
+
 
 class CashoutAndListEndpointTestCase(TestCase):
 
@@ -665,11 +665,9 @@ class CashoutAndListEndpointTestCase(TestCase):
             password="x"
         )
 
-        UserProfile.objects.create(
-            user=self.user,
-            dni="55555555",
-            kyc_status="VERIFIED"
-        )
+        self.user.profile.dni = "55555555"
+        self.user.profile.kyc_status = "VERIFIED"
+        self.user.profile.save()
 
         Account.objects.create(type=Account.AccountType.CASA)
         Account.objects.create(type=Account.AccountType.PENDING)
