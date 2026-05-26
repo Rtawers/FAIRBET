@@ -1,7 +1,7 @@
 import pytest
+from datetime import date, timedelta
 from apps.accounts.dni import calcular_digito_verificador
 from hypothesis import given, strategies as st
-
 
 def test_calcular_digito_verificador_retorna_un_solo_caracter():
     dni_ejemplo = "45678912"
@@ -22,9 +22,7 @@ def test_calcular_digito_verificador_con_letras_lanza_value_error():
         calcular_digito_verificador(dni_con_letras)
 
 def test_validar_dni_completo_con_digito_incorrecto_lanza_value_error():
-   
     dni_incorrecto = "45678912X" 
-    
     with pytest.raises(ValueError, match="El dígito verificador es incorrecto"):
         from apps.accounts.dni import validar_dni
         validar_dni(dni_incorrecto)
@@ -37,16 +35,15 @@ def test_user_profile_recien_creado_tiene_estado_pending_verification():
     User = get_user_model()
     usuario_base = User.objects.create_user(username="maicol_test", password="password123")
     
-    perfil = UserProfile.objects.create(
+    perfil, created = UserProfile.objects.update_or_create(
         user=usuario_base,
-        dni="45678912"  
+        defaults={"dni": "45678912"}
     )
     
     assert perfil.kyc_status == "PENDING_VERIFICATION"
 
 @pytest.mark.django_db
 def test_usuario_menor_de_edad_es_rechazado_en_kyc_lanza_value_error():
-    from datetime import date
     from apps.accounts.services import registrar_usuario_kyc
     
     fecha_nacimiento_menor = date(2015, 5, 23)
@@ -62,11 +59,11 @@ def test_usuario_menor_de_edad_es_rechazado_en_kyc_lanza_value_error():
 
 @pytest.mark.django_db
 def test_usuario_mayor_de_edad_con_dni_valido_pasa_a_estado_verified():
-    from datetime import date
     from apps.accounts.services import registrar_usuario_kyc
-    
+    from apps.accounts.models import UserProfile
+
     fecha_nacimiento_valida = date(2000, 1, 1)
-    
+
     usuario = registrar_usuario_kyc(
         username="maicol_valido",
         email="valido@fairbet.com",
@@ -74,8 +71,30 @@ def test_usuario_mayor_de_edad_con_dni_valido_pasa_a_estado_verified():
         dni="456789121",
         fecha_nacimiento=fecha_nacimiento_valida
     )
-    
-    assert usuario.profile.kyc_status == "VERIFIED"
+
+    # Usamos consulta directa para evitar problemas de caché inversa de Django
+    perfil = UserProfile.objects.get(user=usuario)
+    assert perfil.kyc_status == "VERIFIED"
+
+@pytest.mark.django_db
+def test_usuario_que_cumple_18_anos_hoy_mismo_es_aceptado_en_kyc():
+    from apps.accounts.services import registrar_usuario_kyc
+    from apps.accounts.models import UserProfile
+
+    hoy = date.today()
+    fecha_cumple_hoy = date(hoy.year - 18, hoy.month, hoy.day)
+
+    usuario = registrar_usuario_kyc(
+        username="maicol_cumple_hoy",
+        email="hoy@fairbet.com",
+        password="password123",
+        dni="456789121",
+        fecha_nacimiento=fecha_cumple_hoy
+    )
+
+    # Consulta directa a la base de datos sin usar la relación en caché del objeto 'usuario'
+    perfil = UserProfile.objects.get(user=usuario)
+    assert perfil.kyc_status == "VERIFIED"
 
 @given(st.text(alphabet="0123456789", min_size=8, max_size=8))
 def test_invariante_calcular_digito_verificador_con_hypothesis(dni_aleatorio):
@@ -87,27 +106,7 @@ def test_invariante_calcular_digito_verificador_con_hypothesis(dni_aleatorio):
     assert resultado in "0123456789K"
 
 @pytest.mark.django_db
-def test_usuario_que_cumple_18_anos_hoy_mismo_es_aceptado_en_kyc():
-    from datetime import date, timedelta
-    from apps.accounts.services import registrar_usuario_kyc
-    
-    # Si hoy es 2026-05-23, nació el 2008-05-23 (Cumple 18 justo hoy)
-    hoy = date.today()
-    fecha_cumple_hoy = date(hoy.year - 18, hoy.month, hoy.day)
-    
-    usuario = registrar_usuario_kyc(
-        username="maicol_cumple_hoy",
-        email="hoy@fairbet.com",
-        password="password123",
-        dni="456789121",  # DNI válido (termina en 1)
-        fecha_nacimiento=fecha_cumple_hoy
-    )
-    
-    assert usuario.profile.kyc_status == "VERIFIED"
-
-@pytest.mark.django_db
 def test_usuario_que_cumple_18_anos_manana_es_rechazado_lanza_value_error():
-    from datetime import date, timedelta
     from apps.accounts.services import registrar_usuario_kyc
     
     hoy = date.today()
@@ -127,7 +126,6 @@ def test_usuario_que_cumple_18_anos_manana_es_rechazado_lanza_value_error():
 
 @pytest.mark.django_db
 def test_intentar_registrar_dos_usuarios_con_el_mismo_dni_lanza_error_de_unicidad():
-    from datetime import date
     from apps.accounts.services import registrar_usuario_kyc
     
     fecha_valida = date(2000, 1, 1)
