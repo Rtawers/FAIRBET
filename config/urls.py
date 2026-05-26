@@ -16,5 +16,6 @@ urlpatterns = [
     path('api/wallet/', include('apps.wallet.urls', namespace='wallet')),
     path("api/audit/", include("apps.audit.urls")),
     path("api/betting/", include("apps.betting.urls")),
+    path("api/dashboard/", include("apps.dashboard.urls")),
     
 ]
