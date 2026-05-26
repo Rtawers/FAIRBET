@@ -19,9 +19,18 @@ def create_user_profile(sender, instance, created, **kwargs):
                 "kyc_status": "PENDING_VERIFICATION",
             }
 <<<<<<< HEAD
+<<<<<<< HEAD
         )
 =======
         ) 
 
         
+>>>>>>> feature/app-MaicolRafael
+=======
+        )
+
+
+
+
+
 >>>>>>> feature/app-MaicolRafael
