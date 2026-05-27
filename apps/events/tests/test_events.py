@@ -213,3 +213,53 @@ def test_create_goleador_exacto_no_permite_event_voided():
             jugadores=[{"nombre": "Messi", "odds": Decimal("3.00")}],
             odds_sin_goleador=Decimal("2.50"),
         )
+
+# ============================================================
+# TEST — Suspensión automática con Celery
+# ============================================================
+
+@pytest.mark.django_db
+def test_suspend_market_programa_reapertura():
+    """
+    Al suspender un mercado, debe quedar en estado SUSPENDED.
+    La tarea Celery de reapertura se programa automáticamente.
+    """
+    from apps.events.tasks import reopen_market_after_delay
+    from apps.events.services import suspend_market_with_delay
+
+    event = make_event(status=EventStatus.LIVE)
+    market = Market.create_1x2_market(
+        event=event,
+        odds_home=Decimal("2.50"),
+        odds_draw=Decimal("3.20"),
+        odds_away=Decimal("2.80"),
+    )
+
+    suspend_market_with_delay(market, delay_seconds=30)
+
+    market.refresh_from_db()
+    assert market.status == "SUSPENDED"
+
+
+@pytest.mark.django_db
+def test_reopen_market_after_delay_reabre_mercado():
+    """
+    La tarea Celery reopen_market_after_delay debe reabrir
+    un mercado SUSPENDED.
+    """
+    from apps.events.tasks import reopen_market_after_delay
+
+    event = make_event(status=EventStatus.LIVE)
+    market = Market.create_1x2_market(
+        event=event,
+        odds_home=Decimal("2.50"),
+        odds_draw=Decimal("3.20"),
+        odds_away=Decimal("2.80"),
+    )
+    market.status = "SUSPENDED"
+    market.save()
+
+    reopen_market_after_delay(market.pk)
+
+    market.refresh_from_db()
+    assert market.status == "OPEN"
