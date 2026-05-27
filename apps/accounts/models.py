@@ -11,7 +11,7 @@ class UserProfile(models.Model):
     )
 
     dni = models.CharField(
-        max_length=9,
+        max_length=20,
         unique=True,
         null=True,
         blank=True
@@ -21,7 +21,7 @@ class UserProfile(models.Model):
         ("PENDING_VERIFICATION", "Pending Verification"),
         ("VERIFIED", "Verified"),
         ("REJECTED", "Rejected"),
-        ("BLOCKED", "Blocked"),  # Soportar penalizaciones antifraude
+        ("BLOCKED", "Blocked"), 
     ]
 
     kyc_status = models.CharField(
@@ -43,9 +43,9 @@ class SuspiciousActivity(models.Model):
     user = models.ForeignKey(
         settings.AUTH_USER_MODEL, 
         on_delete=models.CASCADE, 
-        related_name='suspicious_activities'
+        # CAMBIO: related_name único para la app accounts
+        related_name='accounts_suspicious_activities'
     )
-    # CAMBIO AQUÍ: Se cambió max_digits por max_length de manera estricta
     trigger_type = models.CharField(max_length=30, choices=TriggerType.choices)
     description = models.TextField()
     ip_address = models.GenericIPAddressField(null=True, blank=True)

@@ -14,10 +14,10 @@ class SelfExclusion(models.Model):
 
     def is_active(self):
         now = timezone.now()
-        # Indefinida: siempre activa. Temporal: activa si aún no llega la fecha de fin.
         if self.end_date is None:
             return True
         return now < self.end_date
+
     class Meta:
         ordering = ['-created_at']
 
@@ -36,7 +36,8 @@ class DepositLimit(models.Model):
     def __str__(self):
         return f"Límite de {self.user.username}: {self.active_limit}"
 
-#Anti-fraude 
+
+# Anti-fraude / Compliance
 class SuspiciousActivity(models.Model):
     ACTIVITY_TYPES = [
         ('VELOCITY', 'Alta Velocidad de Transacciones'),
@@ -46,7 +47,7 @@ class SuspiciousActivity(models.Model):
     user = models.ForeignKey(
         settings.AUTH_USER_MODEL, 
         on_delete=models.CASCADE, 
-        related_name='suspicious_activities'
+        related_name='compliance_suspicious_activities'
     )
     activity_type = models.CharField(max_length=20, choices=ACTIVITY_TYPES)
     description = models.TextField(
