@@ -1,0 +1,77 @@
+{% extends "base.html" %}
+
+{% block title %}Iniciar sesión — FairBet Lab{% endblock %}
+
+{% block content %}
+<div class="row justify-content-center">
+  <div class="col-md-5 col-lg-4">
+    <div class="card shadow-sm mt-4">
+      <div class="card-body p-4">
+        <h4 class="card-title text-center mb-4">
+          <i class="bi bi-person-lock"></i> Iniciar sesión
+        </h4>
+
+        <div class="mb-3">
+          <label class="form-label fw-bold">Usuario</label>
+          <input type="text" id="username" class="form-control" placeholder="Tu usuario">
+        </div>
+
+        <div class="mb-3">
+          <label class="form-label fw-bold">Contraseña</label>
+          <input type="password" id="password" class="form-control" placeholder="Tu contraseña">
+        </div>
+
+        <button onclick="login()" class="btn btn-primary w-100 py-2">
+          <i class="bi bi-box-arrow-in-right"></i> Entrar
+        </button>
+
+        <div id="msg-login" class="mt-3 text-center"></div>
+      </div>
+    </div>
+
+    <p class="text-center text-muted mt-3" style="font-size: 0.85em;">
+      Demo: <strong>carlos / carlos123</strong> · <strong>maria / maria123</strong>
+    </p>
+  </div>
+</div>
+{% endblock %}
+
+{% block scripts %}
+<script>
+  async function login() {
+    const username = document.getElementById('username').value;
+    const password = document.getElementById('password').value;
+    const msg = document.getElementById('msg-login');
+
+    if (!username || !password) {
+      msg.innerHTML = '<span class="text-danger">Completá usuario y contraseña.</span>';
+      return;
+    }
+
+    const res = await fetch('/api/accounts/login/', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ username, password })
+    });
+
+    const data = await res.json();
+
+    if (res.ok) {
+      localStorage.setItem('access_token', data.access);
+      localStorage.setItem('refresh_token', data.refresh);
+      msg.innerHTML = '<span class="text-success">✅ Login exitoso. Redirigiendo...</span>';
+      setTimeout(() => { window.location.href = '/wallet/'; }, 1000);
+    } else {
+      msg.innerHTML = '<span class="text-danger">❌ Usuario o contraseña incorrectos.</span>';
+    }
+  }
+
+  document.addEventListener('keydown', (e) => {
+    if (e.key === 'Enter') login();
+  });
+
+  if (localStorage.getItem('access_token')) {
+    window.location.href = '/wallet/';
+  }
+</script>
+{% endblock %}

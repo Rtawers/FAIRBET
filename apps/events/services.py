@@ -66,3 +66,16 @@ def reopen_market(market):
     market.status = MarketStatus.OPEN
     market.save(update_fields=["status", "updated_at"])
     return market
+
+def suspend_market_with_delay(market, delay_seconds: int = 30):
+    """
+    Suspende un mercado y programa su reapertura automática
+    después de delay_seconds segundos vía Celery.
+    """
+    from apps.events.tasks import reopen_market_after_delay
+    suspend_market(market)
+    reopen_market_after_delay.apply_async(
+        args=[market.pk],
+        countdown=delay_seconds,
+    )
+    return market

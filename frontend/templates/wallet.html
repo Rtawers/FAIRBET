@@ -1,0 +1,126 @@
+{% extends "base.html" %}
+
+{% block title %}Mi Wallet — FairBet Lab{% endblock %}
+
+{% block content %}
+<div class="row">
+
+  <!-- Saldo -->
+  <div class="col-12 mb-4">
+    <div class="card border-0 bg-primary text-white shadow">
+      <div class="card-body p-4">
+        <h6 class="card-subtitle mb-2 opacity-75">
+          <i class="bi bi-wallet2"></i> Saldo disponible
+        </h6>
+        <h1 id="saldo-actual" class="display-4 fw-bold mb-0">
+          <span class="spinner-border spinner-border-sm"></span>
+        </h1>
+      </div>
+    </div>
+  </div>
+
+  <!-- Recargar -->
+  <div class="col-md-6 mb-4">
+    <div class="card shadow-sm h-100">
+      <div class="card-body p-4">
+        <h5 class="card-title">
+          <i class="bi bi-plus-circle text-success"></i> Recargar fichas
+        </h5>
+        <div class="mb-3">
+          <label class="form-label">Monto (S/)</label>
+          <input type="number" id="monto-recarga" class="form-control form-control-lg"
+                 placeholder="100" min="1" step="0.01">
+        </div>
+        <button onclick="recargar()" class="btn btn-success w-100">
+          <i class="bi bi-plus-lg"></i> Recargar
+        </button>
+        <div id="msg-recarga" class="mt-2"></div>
+      </div>
+    </div>
+  </div>
+
+  <!-- Retirar -->
+  <div class="col-md-6 mb-4">
+    <div class="card shadow-sm h-100">
+      <div class="card-body p-4">
+        <h5 class="card-title">
+          <i class="bi bi-dash-circle text-danger"></i> Retirar fichas
+        </h5>
+        <div class="mb-3">
+          <label class="form-label">Monto (S/)</label>
+          <input type="number" id="monto-retiro" class="form-control form-control-lg"
+                 placeholder="50" min="1" step="0.01">
+        </div>
+        <button onclick="retirar()" class="btn btn-danger w-100">
+          <i class="bi bi-dash-lg"></i> Retirar
+        </button>
+        <div id="msg-retiro" class="mt-2"></div>
+      </div>
+    </div>
+  </div>
+
+</div>
+{% endblock %}
+
+{% block scripts %}
+<script>
+  const TOKEN = localStorage.getItem('access_token');
+
+  if (!TOKEN) window.location.href = '/';
+
+  async function cargarSaldo() {
+    const res = await fetch('/api/wallet/balance/', {
+      headers: { 'Authorization': `Bearer ${TOKEN}` }
+    });
+    const data = await res.json();
+    document.getElementById('saldo-actual').textContent =
+      res.ok ? `S/ ${parseFloat(data.balance).toFixed(2)}` : 'Error';
+  }
+
+  async function recargar() {
+    const monto = document.getElementById('monto-recarga').value;
+    const key = `recarga-${Date.now()}`;
+    const res = await fetch('/api/wallet/recharge/', {
+      method: 'POST',
+      headers: {
+        'Authorization': `Bearer ${TOKEN}`,
+        'Content-Type': 'application/json',
+        'Idempotency-Key': key,
+      },
+      body: JSON.stringify({ amount: monto })
+    });
+    const data = await res.json();
+    const msg = document.getElementById('msg-recarga');
+    if (res.ok) {
+      msg.innerHTML = `<span class="text-success">✅ Recarga exitosa. Saldo: S/ ${parseFloat(data.balance).toFixed(2)}</span>`;
+      cargarSaldo();
+    } else {
+      msg.innerHTML = `<span class="text-danger">❌ ${data.error || 'Error'}</span>`;
+    }
+  }
+
+  async function retirar() {
+    const monto = document.getElementById('monto-retiro').value;
+    const key = `retiro-${Date.now()}`;
+    const res = await fetch('/api/wallet/withdraw/', {
+      method: 'POST',
+      headers: {
+        'Authorization': `Bearer ${TOKEN}`,
+        'Content-Type': 'application/json',
+        'Idempotency-Key': key,
+      },
+      body: JSON.stringify({ amount: monto })
+    });
+    const data = await res.json();
+    const msg = document.getElementById('msg-retiro');
+    if (res.ok) {
+      msg.innerHTML = `<span class="text-success">✅ Retiro exitoso. Saldo: S/ ${parseFloat(data.balance).toFixed(2)}</span>`;
+      cargarSaldo();
+    } else {
+      msg.innerHTML = `<span class="text-danger">❌ ${data.error || 'Error'}</span>`;
+    }
+  }
+
+  cargarSaldo();
+</script>
+{% endblock %}

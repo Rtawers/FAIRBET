@@ -115,6 +115,91 @@ class Market(models.Model):
                 odds=odds_sin_goleador,
             )
         return market
+    @classmethod
+    def create_overunder_market(cls, event, line: Decimal, odds_over: Decimal, odds_under: Decimal):
+        """
+        Over/Under: apuesta si el total de goles será mayor o menor
+        que la línea (ej. 2.5 goles).
+        """
+        if event.status == EventStatus.VOIDED:
+            raise ValueError("No se puede crear un mercado sobre un evento anulado.")
+
+        with transaction.atomic():
+            market = cls.objects.create(
+                event=event,
+                name=f"Over/Under {line}",
+                market_type="over_under",
+            )
+            Selection.objects.create(
+                market=market,
+                name=f"Over {line}",
+                outcome="OVER",
+                odds=odds_over,
+            )
+            Selection.objects.create(
+                market=market,
+                name=f"Under {line}",
+                outcome="UNDER",
+                odds=odds_under,
+            )
+        return market
+
+    @classmethod
+    def create_btts_market(cls, event, odds_yes: Decimal, odds_no: Decimal):
+        """
+        Both Teams To Score: ambos equipos anotan (YES) o no (NO).
+        """
+        if event.status == EventStatus.VOIDED:
+            raise ValueError("No se puede crear un mercado sobre un evento anulado.")
+
+        with transaction.atomic():
+            market = cls.objects.create(
+                event=event,
+                name="Ambos Equipos Anotan",
+                market_type="btts",
+            )
+            Selection.objects.create(
+                market=market,
+                name="Sí",
+                outcome="BTTS_YES",
+                odds=odds_yes,
+            )
+            Selection.objects.create(
+                market=market,
+                name="No",
+                outcome="BTTS_NO",
+                odds=odds_no,
+            )
+        return market
+
+    @classmethod
+    def create_handicap_market(cls, event, handicap: Decimal, odds_home: Decimal, odds_away: Decimal):
+        """
+        Hándicap asiático simple: ventaja/desventaja aplicada al equipo local.
+        Ej: handicap=-1.5 significa que local debe ganar por 2+ goles.
+        """
+        if event.status == EventStatus.VOIDED:
+            raise ValueError("No se puede crear un mercado sobre un evento anulado.")
+
+        with transaction.atomic():
+            market = cls.objects.create(
+                event=event,
+                name=f"Hándicap {handicap:+}",
+                market_type="handicap",
+            )
+            Selection.objects.create(
+                market=market,
+                name=f"Local {handicap:+}",
+                outcome="HANDICAP_HOME",
+                odds=odds_home,
+            )
+            Selection.objects.create(
+                market=market,
+                name=f"Visitante {-handicap:+}",
+                outcome="HANDICAP_AWAY",
+                odds=odds_away,
+            )
+        return market
 
 
 class SelectionResult(models.TextChoices):

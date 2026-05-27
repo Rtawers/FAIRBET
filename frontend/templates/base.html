@@ -3,19 +3,73 @@
 <head>
   <meta charset="utf-8">
   <meta name="viewport" content="width=device-width, initial-scale=1">
-  <title>{% block title %}FairBet{% endblock %}</title>
+  <title>{% block title %}FairBet Lab{% endblock %}</title>
+  <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/css/bootstrap.min.css" rel="stylesheet">
+  <link href="https://cdn.jsdelivr.net/npm/bootstrap-icons@1.11.3/font/bootstrap-icons.css" rel="stylesheet">
+  <style>
+    body { background-color: #f8f9fa; }
+    .navbar-brand { font-weight: 700; letter-spacing: 1px; }
+    .responsible-banner {
+      background: #fff3cd;
+      border-bottom: 1px solid #ffc107;
+      font-size: 0.85em;
+      text-align: center;
+      padding: 6px;
+    }
+    footer {
+      background: #1a365d;
+      color: #a0aec0;
+      font-size: 0.80em;
+      text-align: center;
+      padding: 16px;
+      margin-top: 48px;
+    }
+  </style>
 </head>
 <body>
-  <!-- Mensaje obligatorio de consumo responsable (Ley 31557) -->
-  <div class="responsible-gaming-banner">
+
+  <!-- Banner consumo responsable (Ley 31557) -->
+  <div class="responsible-banner">
+    <i class="bi bi-exclamation-triangle-fill text-warning"></i>
     Juega con responsabilidad. Solo fichas virtuales sin valor monetario real.
   </div>
 
-  <main>{% block content %}{% endblock %}</main>
+  <!-- Navbar -->
+  <nav class="navbar navbar-expand-lg navbar-dark bg-primary">
+    <div class="container">
+      <a class="navbar-brand" href="/">
+        <i class="bi bi-dice-5"></i> FairBet Lab
+      </a>
+      <div class="navbar-nav ms-auto">
+        <a class="nav-link" href="/wallet/"><i class="bi bi-wallet2"></i> Wallet</a>
+        <a class="nav-link" href="/api/schema/swagger-ui/" target="_blank">
+          <i class="bi bi-code-slash"></i> API
+        </a>
+        <a class="nav-link" href="#" onclick="logout()">
+          <i class="bi bi-box-arrow-right"></i> Salir
+        </a>
+      </div>
+    </div>
+  </nav>
 
-  <!-- Footer regulatorio obligatorio (== settings.RESPONSIBLE_GAMING_FOOTER) -->
+  <!-- Contenido -->
+  <main class="container py-4">
+    {% block content %}{% endblock %}
+  </main>
+
+  <!-- Footer regulatorio obligatorio (Ley 31557) -->
   <footer>
     Plataforma educativa con moneda virtual. No constituye una casa de apuestas.
   </footer>
+
+  <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/js/bootstrap.bundle.min.js"></script>
+  <script>
+    function logout() {
+      localStorage.removeItem('access_token');
+      localStorage.removeItem('refresh_token');
+      window.location.href = '/';
+    }
+  </script>
+  {% block scripts %}{% endblock %}
 </body>
 </html>
