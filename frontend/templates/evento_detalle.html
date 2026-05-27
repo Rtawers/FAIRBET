@@ -1,14 +1,13 @@
 {% extends "base.html" %}
+{% load static %}
 
-{% block title %}Eventos — FairBet Lab{% endblock %}
+{% block title %}Evento — FairBet Lab{% endblock %}
 
 {% block content %}
-<h2 class="mb-4"><i class="bi bi-calendar-event"></i> Eventos disponibles</h2>
-
-<div id="lista-eventos" class="row g-3">
-  <div class="col-12 text-center py-5">
+<div id="evento-container">
+  <div class="text-center py-5">
     <div class="spinner-border text-primary"></div>
-    <p class="mt-2 text-muted">Cargando eventos...</p>
+    <p class="mt-2 text-muted">Cargando evento...</p>
   </div>
 </div>
 {% endblock %}
@@ -18,55 +17,66 @@
 const TOKEN = localStorage.getItem('access_token');
 if (!TOKEN) window.location.href = '/';
 
-async function cargarEventos() {
-  const res = await fetch('/api/events/events/');
-  const data = await res.json();
-  const eventos = data.results || data;
-  const container = document.getElementById('lista-eventos');
+const EVENT_ID = {{ event_id }};
 
-  if (!eventos.length) {
-    container.innerHTML = '<div class="col-12"><p class="text-muted">No hay eventos disponibles.</p></div>';
+async function cargarEvento() {
+  const res = await fetch(`/api/events/events/${EVENT_ID}/`, {
+    headers: { 'Authorization': `Bearer ${TOKEN}` }
+  });
+
+  if (res.status === 401) {
+    localStorage.removeItem('access_token');
+    window.location.href = '/';
     return;
   }
 
-  container.innerHTML = eventos.map(ev => `
-    <div class="col-md-6 col-lg-4">
-      <div class="card shadow-sm h-100">
-        <div class="card-header bg-primary text-white d-flex justify-content-between">
-          <span><i class="bi bi-trophy"></i> ${ev.sport.toUpperCase()}</span>
-          <span class="badge bg-light text-primary">${ev.status}</span>
-        </div>
-        <div class="card-body">
-          <h5 class="card-title">${ev.home_team} vs ${ev.away_team}</h5>
-          <p class="text-muted small mb-3">
-            <i class="bi bi-clock"></i> ${new Date(ev.starts_at).toLocaleString('es-PE')}
-          </p>
-          ${ev.markets.map(m => `
-            <div class="mb-3">
-              <p class="fw-bold mb-2">${m.name}</p>
-              <div class="d-flex gap-2 flex-wrap">
-                ${m.selections.map(s => `
-                  <button
-                    class="btn btn-outline-primary btn-sm flex-grow-1"
-                    onclick="seleccionar(${ev.id}, ${m.id}, ${s.id}, '${s.name}', ${s.odds})"
-                    data-outcome="${s.outcome}"
-                    data-market="${m.id}">
-                    ${s.name}<br>
-                    <strong data-outcome="${s.outcome}" data-market="${m.id}">
-                      ${parseFloat(s.odds).toFixed(2)}
-                    </strong>
+  const ev = await res.json();
+  // ... resto del código
+
+  document.getElementById('evento-container').innerHTML = `
+    <div class="d-flex justify-content-between align-items-center mb-4">
+      <a href="/eventos/" class="btn btn-outline-secondary btn-sm">
+        <i class="bi bi-arrow-left"></i> Volver
+      </a>
+      <span class="badge bg-${ev.status === 'LIVE' ? 'danger' : 'success'} fs-6">
+        ${ev.status === 'LIVE' ? '🔴 EN VIVO' : ev.status}
+      </span>
+    </div>
+
+    <div class="card shadow mb-4">
+      <div class="card-header bg-primary text-white">
+        <h4 class="mb-0">${ev.home_team} vs ${ev.away_team}</h4>
+        <small>${new Date(ev.starts_at).toLocaleString('es-PE')}</small>
+      </div>
+      <div class="card-body">
+        ${ev.markets.map(m => `
+          <h5 class="mt-3">${m.name}
+            <span class="badge bg-${m.status === 'OPEN' ? 'success' : 'warning'} ms-2">
+              ${m.status}
+            </span>
+          </h5>
+          <div class="d-flex gap-3 flex-wrap mt-2">
+            ${m.selections.map(s => `
+              <div class="card flex-grow-1 text-center" style="min-width:120px">
+                <div class="card-body py-3">
+                  <p class="mb-1 fw-bold">${s.name}</p>
+                  <h3 class="text-primary mb-2"
+                      data-outcome="${s.outcome}"
+                      data-market="${m.id}">
+                    ${parseFloat(s.odds).toFixed(2)}
+                  </h3>
+                  <button class="btn btn-primary btn-sm w-100"
+                    onclick="seleccionar(${ev.id}, ${m.id}, ${s.id}, '${s.name}', ${s.odds})">
+                    Apostar
                   </button>
-                `).join('')}
+                </div>
               </div>
-            </div>
-          `).join('')}
-          <a href="/eventos/${ev.id}/" class="btn btn-outline-danger btn-sm w-100 mt-2">
-            <i class="bi bi-broadcast"></i> Ver en vivo — odds en tiempo real
-          </a>
-        </div>
+            `).join('')}
+          </div>
+        `).join('')}
       </div>
     </div>
-  `).join('');
+  `;
 }
 
 let seleccionActual = null;
@@ -105,14 +115,17 @@ async function confirmarApuesta() {
 
   const data = await res.json();
   if (res.ok || res.status === 201) {
-    msg.innerHTML = `<span class="text-success">✅ Apuesta confirmada. Pago potencial: S/ ${parseFloat(data.potential_payout || monto * seleccionActual.odds).toFixed(2)}</span>`;
+    msg.innerHTML = `<span class="text-success">✅ Apuesta confirmada!</span>`;
   } else {
     msg.innerHTML = `<span class="text-danger">❌ ${data.error || data.detail || JSON.stringify(data)}</span>`;
   }
 }
 
-cargarEventos();
+cargarEvento();
 </script>
+
+<!-- WebSocket odds en vivo -->
+<script src="{% static 'js/odds.js' %}"></script>
 
 <!-- Modal apuesta -->
 <div class="modal fade" id="modalApuesta" tabindex="-1">
@@ -126,7 +139,7 @@ cargarEventos();
         <p><strong>Selección:</strong> <span id="sel-nombre"></span></p>
         <p><strong>Cuota:</strong> <span id="sel-odds"></span></p>
         <div class="mb-3">
-          <label class="form-label">Monto a apostar (S/)</label>
+          <label class="form-label">Monto (S/)</label>
           <input type="number" id="monto-apuesta" class="form-control form-control-lg"
                  placeholder="Ej: 50" min="1" step="0.01">
         </div>

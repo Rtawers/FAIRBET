@@ -1,4 +1,3 @@
-# frontend/views.py
 from django.shortcuts import render
 
 
@@ -12,3 +11,7 @@ def wallet_view(request):
 
 def eventos_view(request):
     return render(request, 'eventos.html')
+
+
+def evento_detalle_view(request, event_id):
+    return render(request, 'evento_detalle.html', {'event_id': event_id})
