@@ -167,3 +167,49 @@ def test_voided_is_terminal():
     event = make_event(status=EventStatus.VOIDED)
     with pytest.raises(ValueError):
         event.transition_to(EventStatus.LIVE)
+
+# ============================================================
+# TEST — Mercado goleador exacto
+# ============================================================
+
+@pytest.mark.django_db
+def test_create_goleador_exacto_market_incluye_sin_goleador():
+    event = make_event()
+    jugadores = [
+        {"nombre": "Messi",   "odds": Decimal("3.00")},
+        {"nombre": "Suárez",  "odds": Decimal("4.00")},
+        {"nombre": "Lautaro", "odds": Decimal("5.00")},
+    ]
+    market = Market.create_goleador_exacto_market(
+        event=event,
+        jugadores=jugadores,
+        odds_sin_goleador=Decimal("2.50"),
+    )
+    assert market.market_type == "goleador_exacto"
+    outcomes = set(market.selections.values_list("outcome", flat=True))
+    assert "SIN_GOLEADOR" in outcomes
+    assert market.selections.count() == 4
+
+
+@pytest.mark.django_db
+def test_create_goleador_exacto_market_es_atomico():
+    event = make_event()
+    count_before = Market.objects.count()
+    with pytest.raises(Exception):
+        Market.create_goleador_exacto_market(
+            event=event,
+            jugadores=[{"nombre": "Messi", "odds": Decimal("0.50")}],
+            odds_sin_goleador=Decimal("2.50"),
+        )
+    assert Market.objects.count() == count_before
+
+
+@pytest.mark.django_db
+def test_create_goleador_exacto_no_permite_event_voided():
+    event = make_event(status=EventStatus.VOIDED)
+    with pytest.raises(ValueError, match="anulado"):
+        Market.create_goleador_exacto_market(
+            event=event,
+            jugadores=[{"nombre": "Messi", "odds": Decimal("3.00")}],
+            odds_sin_goleador=Decimal("2.50"),
+        )
