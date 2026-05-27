@@ -115,7 +115,7 @@ class PlaceBetEventTestCase(TestCase):
 
     def test_2_apuesta_sobre_evento_no_scheduled_es_rechazada(self):
 
-        selection = self._crear_selection(EventStatus.LIVE)
+        selection = self._crear_selection(EventStatus.FINISHED)
 
         with self.assertRaises(ValidationError):
             place_bet(
