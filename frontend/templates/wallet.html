@@ -1,46 +1,72 @@
 {% extends "base.html" %}
 
-{% block title %}Mi Wallet — FairBet{% endblock %}
+{% block title %}Mi Wallet — FairBet Lab{% endblock %}
 
 {% block content %}
-<div style="max-width: 600px; margin: 40px auto; font-family: sans-serif;">
+<div class="row">
 
-  <h1>Mi Wallet</h1>
-
-  <!-- Saldo actual -->
-  <div style="background: #f0f4f8; padding: 20px; border-radius: 8px; margin-bottom: 24px;">
-    <h2>Saldo disponible</h2>
-    <p id="saldo-actual" style="font-size: 2em; font-weight: bold;">Cargando...</p>
+  <!-- Saldo -->
+  <div class="col-12 mb-4">
+    <div class="card border-0 bg-primary text-white shadow">
+      <div class="card-body p-4">
+        <h6 class="card-subtitle mb-2 opacity-75">
+          <i class="bi bi-wallet2"></i> Saldo disponible
+        </h6>
+        <h1 id="saldo-actual" class="display-4 fw-bold mb-0">
+          <span class="spinner-border spinner-border-sm"></span>
+        </h1>
+      </div>
+    </div>
   </div>
 
-  <!-- Recargar fichas -->
-  <div style="background: #fff; border: 1px solid #ddd; padding: 20px; border-radius: 8px; margin-bottom: 16px;">
-    <h2>Recargar fichas</h2>
-    <input type="number" id="monto-recarga" placeholder="Monto (ej. 100)" min="1" step="0.01"
-           style="width: 100%; padding: 10px; margin-bottom: 10px; font-size: 1em;">
-    <button onclick="recargar()"
-            style="width: 100%; padding: 12px; background: #2c5282; color: white; border: none; border-radius: 6px; font-size: 1em; cursor: pointer;">
-      Recargar
-    </button>
-    <p id="msg-recarga" style="margin-top: 10px; color: green;"></p>
+  <!-- Recargar -->
+  <div class="col-md-6 mb-4">
+    <div class="card shadow-sm h-100">
+      <div class="card-body p-4">
+        <h5 class="card-title">
+          <i class="bi bi-plus-circle text-success"></i> Recargar fichas
+        </h5>
+        <div class="mb-3">
+          <label class="form-label">Monto (S/)</label>
+          <input type="number" id="monto-recarga" class="form-control form-control-lg"
+                 placeholder="100" min="1" step="0.01">
+        </div>
+        <button onclick="recargar()" class="btn btn-success w-100">
+          <i class="bi bi-plus-lg"></i> Recargar
+        </button>
+        <div id="msg-recarga" class="mt-2"></div>
+      </div>
+    </div>
   </div>
 
-  <!-- Retirar fichas -->
-  <div style="background: #fff; border: 1px solid #ddd; padding: 20px; border-radius: 8px;">
-    <h2>Retirar fichas</h2>
-    <input type="number" id="monto-retiro" placeholder="Monto (ej. 50)" min="1" step="0.01"
-           style="width: 100%; padding: 10px; margin-bottom: 10px; font-size: 1em;">
-    <button onclick="retirar()"
-            style="width: 100%; padding: 12px; background: #744210; color: white; border: none; border-radius: 6px; font-size: 1em; cursor: pointer;">
-      Retirar
-    </button>
-    <p id="msg-retiro" style="margin-top: 10px; color: green;"></p>
+  <!-- Retirar -->
+  <div class="col-md-6 mb-4">
+    <div class="card shadow-sm h-100">
+      <div class="card-body p-4">
+        <h5 class="card-title">
+          <i class="bi bi-dash-circle text-danger"></i> Retirar fichas
+        </h5>
+        <div class="mb-3">
+          <label class="form-label">Monto (S/)</label>
+          <input type="number" id="monto-retiro" class="form-control form-control-lg"
+                 placeholder="50" min="1" step="0.01">
+        </div>
+        <button onclick="retirar()" class="btn btn-danger w-100">
+          <i class="bi bi-dash-lg"></i> Retirar
+        </button>
+        <div id="msg-retiro" class="mt-2"></div>
+      </div>
+    </div>
   </div>
 
 </div>
+{% endblock %}
 
+{% block scripts %}
 <script>
   const TOKEN = localStorage.getItem('access_token');
+
+  if (!TOKEN) window.location.href = '/';
 
   async function cargarSaldo() {
     const res = await fetch('/api/wallet/balance/', {
@@ -48,7 +74,7 @@
     });
     const data = await res.json();
     document.getElementById('saldo-actual').textContent =
-      res.ok ? `S/ ${parseFloat(data.balance).toFixed(2)}` : 'Error al cargar saldo';
+      res.ok ? `S/ ${parseFloat(data.balance).toFixed(2)}` : 'Error';
   }
 
   async function recargar() {
@@ -66,12 +92,10 @@
     const data = await res.json();
     const msg = document.getElementById('msg-recarga');
     if (res.ok) {
-      msg.style.color = 'green';
-      msg.textContent = `✅ Recarga exitosa. Nuevo saldo: S/ ${parseFloat(data.balance).toFixed(2)}`;
+      msg.innerHTML = `<span class="text-success">✅ Recarga exitosa. Saldo: S/ ${parseFloat(data.balance).toFixed(2)}</span>`;
       cargarSaldo();
     } else {
-      msg.style.color = 'red';
-      msg.textContent = `❌ Error: ${data.error || JSON.stringify(data)}`;
+      msg.innerHTML = `<span class="text-danger">❌ ${data.error || 'Error'}</span>`;
     }
   }
 
@@ -90,16 +114,13 @@
     const data = await res.json();
     const msg = document.getElementById('msg-retiro');
     if (res.ok) {
-      msg.style.color = 'green';
-      msg.textContent = `✅ Retiro exitoso. Nuevo saldo: S/ ${parseFloat(data.balance).toFixed(2)}`;
+      msg.innerHTML = `<span class="text-success">✅ Retiro exitoso. Saldo: S/ ${parseFloat(data.balance).toFixed(2)}</span>`;
       cargarSaldo();
     } else {
-      msg.style.color = 'red';
-      msg.textContent = `❌ Error: ${data.error || JSON.stringify(data)}`;
+      msg.innerHTML = `<span class="text-danger">❌ ${data.error || 'Error'}</span>`;
     }
   }
 
-  // Cargar saldo al abrir la página
   cargarSaldo();
 </script>
 {% endblock %}
