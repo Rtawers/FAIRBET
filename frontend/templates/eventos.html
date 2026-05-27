@@ -1,0 +1,141 @@
+{% extends "base.html" %}
+
+{% block title %}Eventos — FairBet Lab{% endblock %}
+
+{% block content %}
+<h2 class="mb-4"><i class="bi bi-calendar-event"></i> Eventos disponibles</h2>
+
+<div id="lista-eventos" class="row g-3">
+  <div class="col-12 text-center py-5">
+    <div class="spinner-border text-primary"></div>
+    <p class="mt-2 text-muted">Cargando eventos...</p>
+  </div>
+</div>
+{% endblock %}
+
+{% block scripts %}
+<script>
+const TOKEN = localStorage.getItem('access_token');
+if (!TOKEN) window.location.href = '/';
+
+async function cargarEventos() {
+  const res = await fetch('/api/events/events/');
+  const data = await res.json();
+  const eventos = data.results || data;
+  const container = document.getElementById('lista-eventos');
+
+  if (!eventos.length) {
+    container.innerHTML = '<div class="col-12"><p class="text-muted">No hay eventos disponibles.</p></div>';
+    return;
+  }
+
+  container.innerHTML = eventos.map(ev => `
+    <div class="col-md-6 col-lg-4">
+      <div class="card shadow-sm h-100">
+        <div class="card-header bg-primary text-white d-flex justify-content-between">
+          <span><i class="bi bi-trophy"></i> ${ev.sport.toUpperCase()}</span>
+          <span class="badge bg-light text-primary">${ev.status}</span>
+        </div>
+        <div class="card-body">
+          <h5 class="card-title">${ev.home_team} vs ${ev.away_team}</h5>
+          <p class="text-muted small mb-3">
+            <i class="bi bi-clock"></i> ${new Date(ev.starts_at).toLocaleString('es-PE')}
+          </p>
+          ${ev.markets.map(m => `
+            <div class="mb-3">
+              <p class="fw-bold mb-2">${m.name}</p>
+              <div class="d-flex gap-2 flex-wrap">
+                ${m.selections.map(s => `
+                  <button
+                    class="btn btn-outline-primary btn-sm flex-grow-1"
+                    onclick="seleccionar(${ev.id}, ${m.id}, ${s.id}, '${s.name}', ${s.odds})"
+                    data-outcome="${s.outcome}"
+                    data-market="${m.id}">
+                    ${s.name}<br>
+                    <strong data-outcome="${s.outcome}" data-market="${m.id}">
+                      ${parseFloat(s.odds).toFixed(2)}
+                    </strong>
+                  </button>
+                `).join('')}
+              </div>
+            </div>
+          `).join('')}
+        </div>
+      </div>
+    </div>
+  `).join('');
+}
+
+let seleccionActual = null;
+
+function seleccionar(eventId, marketId, selectionId, nombre, odds) {
+  seleccionActual = { eventId, marketId, selectionId, nombre, odds };
+  document.getElementById('sel-nombre').textContent = nombre;
+  document.getElementById('sel-odds').textContent = parseFloat(odds).toFixed(2);
+  document.getElementById('monto-apuesta').value = '';
+  document.getElementById('msg-apuesta').innerHTML = '';
+  new bootstrap.Modal(document.getElementById('modalApuesta')).show();
+}
+
+async function confirmarApuesta() {
+  const monto = document.getElementById('monto-apuesta').value;
+  const msg = document.getElementById('msg-apuesta');
+
+  if (!monto || parseFloat(monto) <= 0) {
+    msg.innerHTML = '<span class="text-danger">Ingresá un monto válido.</span>';
+    return;
+  }
+
+  const key = `bet-${Date.now()}`;
+  const res = await fetch('/api/betting/bets/', {
+    method: 'POST',
+    headers: {
+      'Authorization': `Bearer ${TOKEN}`,
+      'Content-Type': 'application/json',
+      'Idempotency-Key': key,
+    },
+    body: JSON.stringify({
+      selection_id: seleccionActual.selectionId,
+      amount: monto,
+    })
+  });
+
+  const data = await res.json();
+  if (res.ok || res.status === 201) {
+    msg.innerHTML = `<span class="text-success">✅ Apuesta confirmada. Pago potencial: S/ ${parseFloat(data.potential_payout || monto * seleccionActual.odds).toFixed(2)}</span>`;
+  } else {
+    msg.innerHTML = `<span class="text-danger">❌ ${data.error || data.detail || JSON.stringify(data)}</span>`;
+  }
+}
+
+cargarEventos();
+</script>
+
+<!-- Modal apuesta -->
+<div class="modal fade" id="modalApuesta" tabindex="-1">
+  <div class="modal-dialog">
+    <div class="modal-content">
+      <div class="modal-header bg-primary text-white">
+        <h5 class="modal-title"><i class="bi bi-dice-5"></i> Confirmar apuesta</h5>
+        <button type="button" class="btn-close btn-close-white" data-bs-dismiss="modal"></button>
+      </div>
+      <div class="modal-body">
+        <p><strong>Selección:</strong> <span id="sel-nombre"></span></p>
+        <p><strong>Cuota:</strong> <span id="sel-odds"></span></p>
+        <div class="mb-3">
+          <label class="form-label">Monto a apostar (S/)</label>
+          <input type="number" id="monto-apuesta" class="form-control form-control-lg"
+                 placeholder="Ej: 50" min="1" step="0.01">
+        </div>
+        <div id="msg-apuesta"></div>
+      </div>
+      <div class="modal-footer">
+        <button class="btn btn-secondary" data-bs-dismiss="modal">Cancelar</button>
+        <button class="btn btn-primary" onclick="confirmarApuesta()">
+          <i class="bi bi-check-lg"></i> Apostar
+        </button>
+      </div>
+    </div>
+  </div>
+</div>
+{% endblock %}
