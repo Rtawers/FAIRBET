@@ -62,10 +62,8 @@ class AccountsAPITestCase(APITestCase):
         el cuarto usuario sea bloqueado automáticamente (BLOCKED) y se registre
         un evento en SuspiciousActivity.
         """
-        # Definimos una IP simulada para el ataque/fraude
         ip_sospechosa = "192.168.1.50"
         
-        # Registramos las primeras 3 cuentas permitidas por el umbral (Pamela)
         for i in range(1, 4):
             data = {
                 "username": f"usuario_ip_{i}",
@@ -73,7 +71,6 @@ class AccountsAPITestCase(APITestCase):
                 "password": "SecurePassword123*",
                 "birth_date": "2000-05-23"
             }
-            # Enviamos la IP simulada en los metadatos de la petición HTTP
             response = self.client.post(
                 self.register_url, 
                 data, 
@@ -83,7 +80,6 @@ class AccountsAPITestCase(APITestCase):
             self.assertEqual(response.status_code, status.HTTP_201_CREATED)
             self.assertEqual(response.data["kyc_status"], "PENDING_VERIFICATION")
 
-        # Intentamos registrar al CUARTO usuario desde la misma dirección IP
         cuarto_usuario_data = {
             "username": "usuario_fraudulento_4",
             "email": "fraude4@fairbet.lab",
@@ -98,13 +94,9 @@ class AccountsAPITestCase(APITestCase):
             REMOTE_ADDR=ip_sospechosa
         )
         
-        # 1. Comprobamos que el código de respuesta sea exitoso
-        # (se registra la cuenta pero nace penalizada/bloqueada inmediatamente)
         self.assertEqual(response.status_code, status.HTTP_201_CREATED)
         self.assertEqual(response.data["kyc_status"], "BLOCKED")
         
-        # 2. Verificación de la persistencia: Comprobamos si el modelo SuspiciousActivity existe 
-        # e interceptó el fraude guardándolo en la base de datos
         from apps.accounts.models import SuspiciousActivity
         
         alertas_ip = SuspiciousActivity.objects.filter(
