@@ -139,6 +139,15 @@ class WithdrawView(APIView):
             )
 
         amount = serializer.validated_data['amount']
+
+        # Validar rollover antes de permitir retiro de saldo BONUS
+        from apps.betting.rollover_service import rollover_cumplido
+        if not rollover_cumplido(request.user):
+            return Response(
+                {'error': 'Debe cumplir el rollover de 5x el bono antes de retirar.'},
+                status=status.HTTP_400_BAD_REQUEST,
+            )
+
         balance = _get_user_balance(request.user)
 
         if balance < amount:
