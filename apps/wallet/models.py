@@ -74,6 +74,7 @@ class Transaction(models.Model):
         RECHARGE = 'RECHARGE', 'Recarga de fichas'
         BET_LOCK = 'BET_LOCK', 'Bloqueo por apuesta'
         SETTLEMENT = 'SETTLEMENT', 'Liquidacion de apuesta'
+        WITHDRAW = 'WITHDRAW', 'Retiro de fichas'
 
     kind = models.CharField(max_length=15, choices=Kind.choices)
     created_at = models.DateTimeField(auto_now_add=True)

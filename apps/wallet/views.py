@@ -1,13 +1,4 @@
-# apps/wallet/views.py
-"""
-Endpoints REST del Wallet.
-
-GET  /api/wallet/balance/   — saldo derivado del usuario autenticado.
-POST /api/wallet/recharge/  — recarga fichas (requiere Idempotency-Key).
-POST /api/wallet/withdraw/  — retiro simulado (requiere Idempotency-Key).
-"""
 from decimal import Decimal
-
 from django.db.models import Q, Sum
 from rest_framework import status
 from rest_framework.permissions import IsAuthenticated
@@ -16,7 +7,7 @@ from rest_framework.views import APIView
 
 from apps.wallet.models import Account, LedgerEntry, Transaction
 from apps.wallet.serializers import RechargeSerializer, WithdrawSerializer
-from apps.wallet.services import execute_recharge, execute_bet_lock
+from apps.wallet.services import execute_recharge, get_monto_bono
 
 
 def _get_user_balance(user) -> Decimal:
@@ -37,10 +28,10 @@ def _get_user_balance(user) -> Decimal:
     return credits - debits
 
 
-def _get_or_check_idempotency(idempotency_key, kind):
+def _get_or_check_idempotency(idempotency_key):
     """
     Verifica si ya existe una transaccion con este idempotency_key.
-    Retorna (transaction, created) similar a get_or_create.
+    Retorna (transaction, is_new).
     """
     try:
         tx = Transaction.objects.get(idempotency_key=idempotency_key)
@@ -63,7 +54,6 @@ class RechargeView(APIView):
     permission_classes = [IsAuthenticated]
 
     def post(self, request):
-        # Validar Idempotency-Key
         idempotency_key = request.headers.get('Idempotency-Key')
         if not idempotency_key:
             return Response(
@@ -71,10 +61,7 @@ class RechargeView(APIView):
                 status=status.HTTP_400_BAD_REQUEST,
             )
 
-        # Verificar idempotencia
-        existing_tx, is_new = _get_or_check_idempotency(
-            idempotency_key, Transaction.Kind.RECHARGE
-        )
+        existing_tx, is_new = _get_or_check_idempotency(idempotency_key)
         if not is_new:
             balance = _get_user_balance(request.user)
             return Response(
@@ -82,7 +69,6 @@ class RechargeView(APIView):
                 status=status.HTTP_200_OK,
             )
 
-        # Validar datos
         serializer = RechargeSerializer(data=request.data)
         if not serializer.is_valid():
             return Response(
@@ -121,9 +107,7 @@ class WithdrawView(APIView):
                 status=status.HTTP_400_BAD_REQUEST,
             )
 
-        existing_tx, is_new = _get_or_check_idempotency(
-            idempotency_key, Transaction.Kind.RECHARGE
-        )
+        existing_tx, is_new = _get_or_check_idempotency(idempotency_key)
         if not is_new:
             balance = _get_user_balance(request.user)
             return Response(
@@ -139,15 +123,6 @@ class WithdrawView(APIView):
             )
 
         amount = serializer.validated_data['amount']
-
-        # Validar rollover antes de permitir retiro de saldo BONUS
-        from apps.betting.rollover_service import rollover_cumplido
-        if not rollover_cumplido(request.user):
-            return Response(
-                {'error': 'Debe cumplir el rollover de 5x el bono antes de retirar.'},
-                status=status.HTTP_400_BAD_REQUEST,
-            )
-
         balance = _get_user_balance(request.user)
 
         if balance < amount:
@@ -156,7 +131,17 @@ class WithdrawView(APIView):
                 status=status.HTTP_400_BAD_REQUEST,
             )
 
-        # Retiro: WALLET DEBIT → CASA CREDIT
+        # Fix Bug 2: rollover solo bloquea si toca saldo BONUS
+        monto_bono = get_monto_bono(request.user)
+        if monto_bono > 0 and amount > (balance - monto_bono):
+            from apps.betting.rollover_service import rollover_cumplido
+            if not rollover_cumplido(request.user):
+                return Response(
+                    {'error': 'Debe cumplir el rollover de 5x el bono antes de retirar saldo de bono.'},
+                    status=status.HTTP_400_BAD_REQUEST,
+                )
+
+        # Fix Bug 1: usar Transaction.Kind.WITHDRAW en lugar de RECHARGE
         from django.db import transaction as db_transaction
         with db_transaction.atomic():
             wallet = Account.objects.select_for_update().get(
@@ -165,7 +150,7 @@ class WithdrawView(APIView):
             )
             casa = Account.objects.get(type=Account.AccountType.CASA)
             tx = Transaction.objects.create(
-                kind=Transaction.Kind.RECHARGE,
+                kind=Transaction.Kind.WITHDRAW,
                 idempotency_key=idempotency_key,
             )
             LedgerEntry.objects.create(
