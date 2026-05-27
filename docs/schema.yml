@@ -1,0 +1,972 @@
+openapi: 3.0.3
+info:
+  title: ''
+  version: 0.0.0
+paths:
+  /api/accounts/kyc/:
+    post:
+      operationId: accounts_kyc_create
+      tags:
+      - accounts
+      security:
+      - jwtAuth: []
+      - cookieAuth: []
+      responses:
+        '200':
+          description: No response body
+  /api/accounts/login/:
+    post:
+      operationId: accounts_login_create
+      description: |-
+        Takes a set of user credentials and returns an access and refresh JSON web
+        token pair to prove the authentication of those credentials.
+      tags:
+      - accounts
+      requestBody:
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/TokenObtainPair'
+          application/x-www-form-urlencoded:
+            schema:
+              $ref: '#/components/schemas/TokenObtainPair'
+          multipart/form-data:
+            schema:
+              $ref: '#/components/schemas/TokenObtainPair'
+        required: true
+      responses:
+        '200':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/TokenObtainPair'
+          description: ''
+  /api/accounts/register/:
+    post:
+      operationId: accounts_register_create
+      tags:
+      - accounts
+      security:
+      - jwtAuth: []
+      - cookieAuth: []
+      - {}
+      responses:
+        '200':
+          description: No response body
+  /api/audit/verify/:
+    get:
+      operationId: audit_verify_retrieve
+      tags:
+      - audit
+      security:
+      - jwtAuth: []
+      - cookieAuth: []
+      responses:
+        '200':
+          description: No response body
+  /api/betting/bets/:
+    post:
+      operationId: betting_bets_create
+      tags:
+      - betting
+      security:
+      - jwtAuth: []
+      - cookieAuth: []
+      responses:
+        '200':
+          description: No response body
+  /api/betting/bets/mine/:
+    get:
+      operationId: betting_bets_mine_retrieve
+      tags:
+      - betting
+      security:
+      - jwtAuth: []
+      - cookieAuth: []
+      responses:
+        '200':
+          description: No response body
+  /api/betting/cashout/:
+    post:
+      operationId: betting_cashout_create
+      tags:
+      - betting
+      security:
+      - jwtAuth: []
+      - cookieAuth: []
+      responses:
+        '200':
+          description: No response body
+  /api/compliance/deposit-limit/:
+    get:
+      operationId: compliance_deposit_limit_retrieve
+      tags:
+      - compliance
+      security:
+      - jwtAuth: []
+      - cookieAuth: []
+      responses:
+        '200':
+          description: No response body
+    post:
+      operationId: compliance_deposit_limit_create
+      tags:
+      - compliance
+      security:
+      - jwtAuth: []
+      - cookieAuth: []
+      responses:
+        '200':
+          description: No response body
+  /api/compliance/self-exclusion/:
+    post:
+      operationId: compliance_self_exclusion_create
+      tags:
+      - compliance
+      security:
+      - jwtAuth: []
+      - cookieAuth: []
+      responses:
+        '200':
+          description: No response body
+  /api/dashboard/metrics/:
+    get:
+      operationId: dashboard_metrics_retrieve
+      description: |-
+        GET /api/dashboard/metrics/
+
+        Devuelve las métricas clave del operador. Solo accesible por admin.
+      tags:
+      - dashboard
+      security:
+      - jwtAuth: []
+      - cookieAuth: []
+      responses:
+        '200':
+          description: No response body
+  /api/dashboard/report/csv/:
+    get:
+      operationId: dashboard_report_csv_retrieve
+      description: |-
+        GET /api/dashboard/report/csv/
+
+        Genera el reporte regulatorio (estilo MINCETUR) en formato CSV
+        descargable con las métricas del operador. Solo accesible por admin.
+      tags:
+      - dashboard
+      security:
+      - jwtAuth: []
+      - cookieAuth: []
+      responses:
+        '200':
+          description: No response body
+  /api/events/events/:
+    get:
+      operationId: events_events_list
+      tags:
+      - events
+      security:
+      - jwtAuth: []
+      - cookieAuth: []
+      responses:
+        '200':
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: '#/components/schemas/Event'
+          description: ''
+    post:
+      operationId: events_events_create
+      tags:
+      - events
+      requestBody:
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/Event'
+          application/x-www-form-urlencoded:
+            schema:
+              $ref: '#/components/schemas/Event'
+          multipart/form-data:
+            schema:
+              $ref: '#/components/schemas/Event'
+        required: true
+      security:
+      - jwtAuth: []
+      - cookieAuth: []
+      responses:
+        '201':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Event'
+          description: ''
+  /api/events/events/{id}/:
+    get:
+      operationId: events_events_retrieve
+      parameters:
+      - in: path
+        name: id
+        schema:
+          type: integer
+        description: Un valor de entero único que identifique este event.
+        required: true
+      tags:
+      - events
+      security:
+      - jwtAuth: []
+      - cookieAuth: []
+      responses:
+        '200':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Event'
+          description: ''
+    put:
+      operationId: events_events_update
+      parameters:
+      - in: path
+        name: id
+        schema:
+          type: integer
+        description: Un valor de entero único que identifique este event.
+        required: true
+      tags:
+      - events
+      requestBody:
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/Event'
+          application/x-www-form-urlencoded:
+            schema:
+              $ref: '#/components/schemas/Event'
+          multipart/form-data:
+            schema:
+              $ref: '#/components/schemas/Event'
+        required: true
+      security:
+      - jwtAuth: []
+      - cookieAuth: []
+      responses:
+        '200':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Event'
+          description: ''
+    patch:
+      operationId: events_events_partial_update
+      parameters:
+      - in: path
+        name: id
+        schema:
+          type: integer
+        description: Un valor de entero único que identifique este event.
+        required: true
+      tags:
+      - events
+      requestBody:
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/PatchedEvent'
+          application/x-www-form-urlencoded:
+            schema:
+              $ref: '#/components/schemas/PatchedEvent'
+          multipart/form-data:
+            schema:
+              $ref: '#/components/schemas/PatchedEvent'
+      security:
+      - jwtAuth: []
+      - cookieAuth: []
+      responses:
+        '200':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Event'
+          description: ''
+    delete:
+      operationId: events_events_destroy
+      parameters:
+      - in: path
+        name: id
+        schema:
+          type: integer
+        description: Un valor de entero único que identifique este event.
+        required: true
+      tags:
+      - events
+      security:
+      - jwtAuth: []
+      - cookieAuth: []
+      responses:
+        '204':
+          description: No response body
+  /api/events/events/{id}/transition/:
+    post:
+      operationId: events_events_transition_create
+      parameters:
+      - in: path
+        name: id
+        schema:
+          type: integer
+        description: Un valor de entero único que identifique este event.
+        required: true
+      tags:
+      - events
+      requestBody:
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/Event'
+          application/x-www-form-urlencoded:
+            schema:
+              $ref: '#/components/schemas/Event'
+          multipart/form-data:
+            schema:
+              $ref: '#/components/schemas/Event'
+        required: true
+      security:
+      - jwtAuth: []
+      - cookieAuth: []
+      responses:
+        '200':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Event'
+          description: ''
+  /api/events/markets/:
+    get:
+      operationId: events_markets_list
+      tags:
+      - events
+      security:
+      - jwtAuth: []
+      - cookieAuth: []
+      responses:
+        '200':
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: '#/components/schemas/Market'
+          description: ''
+    post:
+      operationId: events_markets_create
+      tags:
+      - events
+      requestBody:
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/Market'
+          application/x-www-form-urlencoded:
+            schema:
+              $ref: '#/components/schemas/Market'
+          multipart/form-data:
+            schema:
+              $ref: '#/components/schemas/Market'
+        required: true
+      security:
+      - jwtAuth: []
+      - cookieAuth: []
+      responses:
+        '201':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Market'
+          description: ''
+  /api/events/markets/{id}/:
+    get:
+      operationId: events_markets_retrieve
+      parameters:
+      - in: path
+        name: id
+        schema:
+          type: integer
+        description: Un valor de entero único que identifique este market.
+        required: true
+      tags:
+      - events
+      security:
+      - jwtAuth: []
+      - cookieAuth: []
+      responses:
+        '200':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Market'
+          description: ''
+    put:
+      operationId: events_markets_update
+      parameters:
+      - in: path
+        name: id
+        schema:
+          type: integer
+        description: Un valor de entero único que identifique este market.
+        required: true
+      tags:
+      - events
+      requestBody:
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/Market'
+          application/x-www-form-urlencoded:
+            schema:
+              $ref: '#/components/schemas/Market'
+          multipart/form-data:
+            schema:
+              $ref: '#/components/schemas/Market'
+        required: true
+      security:
+      - jwtAuth: []
+      - cookieAuth: []
+      responses:
+        '200':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Market'
+          description: ''
+    patch:
+      operationId: events_markets_partial_update
+      parameters:
+      - in: path
+        name: id
+        schema:
+          type: integer
+        description: Un valor de entero único que identifique este market.
+        required: true
+      tags:
+      - events
+      requestBody:
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/PatchedMarket'
+          application/x-www-form-urlencoded:
+            schema:
+              $ref: '#/components/schemas/PatchedMarket'
+          multipart/form-data:
+            schema:
+              $ref: '#/components/schemas/PatchedMarket'
+      security:
+      - jwtAuth: []
+      - cookieAuth: []
+      responses:
+        '200':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Market'
+          description: ''
+    delete:
+      operationId: events_markets_destroy
+      parameters:
+      - in: path
+        name: id
+        schema:
+          type: integer
+        description: Un valor de entero único que identifique este market.
+        required: true
+      tags:
+      - events
+      security:
+      - jwtAuth: []
+      - cookieAuth: []
+      responses:
+        '204':
+          description: No response body
+  /api/events/markets/{id}/odds/:
+    post:
+      operationId: events_markets_odds_create
+      parameters:
+      - in: path
+        name: id
+        schema:
+          type: integer
+        description: Un valor de entero único que identifique este market.
+        required: true
+      tags:
+      - events
+      requestBody:
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/Market'
+          application/x-www-form-urlencoded:
+            schema:
+              $ref: '#/components/schemas/Market'
+          multipart/form-data:
+            schema:
+              $ref: '#/components/schemas/Market'
+        required: true
+      security:
+      - jwtAuth: []
+      - cookieAuth: []
+      responses:
+        '200':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Market'
+          description: ''
+  /api/events/markets/{id}/reopen/:
+    post:
+      operationId: events_markets_reopen_create
+      parameters:
+      - in: path
+        name: id
+        schema:
+          type: integer
+        description: Un valor de entero único que identifique este market.
+        required: true
+      tags:
+      - events
+      requestBody:
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/Market'
+          application/x-www-form-urlencoded:
+            schema:
+              $ref: '#/components/schemas/Market'
+          multipart/form-data:
+            schema:
+              $ref: '#/components/schemas/Market'
+        required: true
+      security:
+      - jwtAuth: []
+      - cookieAuth: []
+      responses:
+        '200':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Market'
+          description: ''
+  /api/events/markets/{id}/suspend/:
+    post:
+      operationId: events_markets_suspend_create
+      parameters:
+      - in: path
+        name: id
+        schema:
+          type: integer
+        description: Un valor de entero único que identifique este market.
+        required: true
+      tags:
+      - events
+      requestBody:
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/Market'
+          application/x-www-form-urlencoded:
+            schema:
+              $ref: '#/components/schemas/Market'
+          multipart/form-data:
+            schema:
+              $ref: '#/components/schemas/Market'
+        required: true
+      security:
+      - jwtAuth: []
+      - cookieAuth: []
+      responses:
+        '200':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Market'
+          description: ''
+  /api/schema/:
+    get:
+      operationId: schema_retrieve
+      description: |-
+        OpenApi3 schema for this API. Format can be selected via content negotiation.
+
+        - YAML: application/vnd.oai.openapi
+        - JSON: application/vnd.oai.openapi+json
+      parameters:
+      - in: query
+        name: format
+        schema:
+          type: string
+          enum:
+          - json
+          - yaml
+      - in: query
+        name: lang
+        schema:
+          type: string
+          enum:
+          - af
+          - ar
+          - ar-dz
+          - ast
+          - az
+          - be
+          - bg
+          - bn
+          - br
+          - bs
+          - ca
+          - ckb
+          - cs
+          - cy
+          - da
+          - de
+          - dsb
+          - el
+          - en
+          - en-au
+          - en-gb
+          - eo
+          - es
+          - es-ar
+          - es-co
+          - es-mx
+          - es-ni
+          - es-ve
+          - et
+          - eu
+          - fa
+          - fi
+          - fr
+          - fy
+          - ga
+          - gd
+          - gl
+          - he
+          - hi
+          - hr
+          - hsb
+          - hu
+          - hy
+          - ia
+          - id
+          - ig
+          - io
+          - is
+          - it
+          - ja
+          - ka
+          - kab
+          - kk
+          - km
+          - kn
+          - ko
+          - ky
+          - lb
+          - lt
+          - lv
+          - mk
+          - ml
+          - mn
+          - mr
+          - ms
+          - my
+          - nb
+          - ne
+          - nl
+          - nn
+          - os
+          - pa
+          - pl
+          - pt
+          - pt-br
+          - ro
+          - ru
+          - sk
+          - sl
+          - sq
+          - sr
+          - sr-latn
+          - sv
+          - sw
+          - ta
+          - te
+          - tg
+          - th
+          - tk
+          - tr
+          - tt
+          - udm
+          - ug
+          - uk
+          - ur
+          - uz
+          - vi
+          - zh-hans
+          - zh-hant
+      tags:
+      - schema
+      security:
+      - jwtAuth: []
+      - cookieAuth: []
+      - {}
+      responses:
+        '200':
+          content:
+            application/vnd.oai.openapi:
+              schema:
+                type: object
+                additionalProperties: {}
+            application/yaml:
+              schema:
+                type: object
+                additionalProperties: {}
+            application/vnd.oai.openapi+json:
+              schema:
+                type: object
+                additionalProperties: {}
+            application/json:
+              schema:
+                type: object
+                additionalProperties: {}
+          description: ''
+  /api/wallet/balance/:
+    get:
+      operationId: wallet_balance_retrieve
+      description: GET /api/wallet/balance/ — retorna el saldo actual del usuario.
+      tags:
+      - wallet
+      security:
+      - jwtAuth: []
+      - cookieAuth: []
+      responses:
+        '200':
+          description: No response body
+  /api/wallet/recharge/:
+    post:
+      operationId: wallet_recharge_create
+      description: POST /api/wallet/recharge/ — recarga fichas al wallet.
+      tags:
+      - wallet
+      security:
+      - jwtAuth: []
+      - cookieAuth: []
+      responses:
+        '200':
+          description: No response body
+  /api/wallet/withdraw/:
+    post:
+      operationId: wallet_withdraw_create
+      description: POST /api/wallet/withdraw/ — retiro simulado de fichas.
+      tags:
+      - wallet
+      security:
+      - jwtAuth: []
+      - cookieAuth: []
+      responses:
+        '200':
+          description: No response body
+components:
+  schemas:
+    Event:
+      type: object
+      properties:
+        id:
+          type: integer
+          readOnly: true
+        name:
+          type: string
+          maxLength: 200
+        sport:
+          type: string
+          maxLength: 50
+        home_team:
+          type: string
+          maxLength: 100
+        away_team:
+          type: string
+          maxLength: 100
+        starts_at:
+          type: string
+          format: date-time
+        status:
+          $ref: '#/components/schemas/EventStatusEnum'
+        markets:
+          type: array
+          items:
+            $ref: '#/components/schemas/Market'
+          readOnly: true
+      required:
+      - away_team
+      - home_team
+      - id
+      - markets
+      - name
+      - starts_at
+    EventStatusEnum:
+      enum:
+      - SCHEDULED
+      - LIVE
+      - FINISHED
+      - SUSPENDED
+      - VOIDED
+      type: string
+      description: |-
+        * `SCHEDULED` - Programado
+        * `LIVE` - En vivo
+        * `FINISHED` - Finalizado
+        * `SUSPENDED` - Suspendido
+        * `VOIDED` - Anulado
+    Market:
+      type: object
+      properties:
+        id:
+          type: integer
+          readOnly: true
+        name:
+          type: string
+          maxLength: 100
+        market_type:
+          type: string
+          maxLength: 50
+        status:
+          $ref: '#/components/schemas/MarketStatusEnum'
+        selections:
+          type: array
+          items:
+            $ref: '#/components/schemas/Selection'
+          readOnly: true
+      required:
+      - id
+      - market_type
+      - name
+      - selections
+    MarketStatusEnum:
+      enum:
+      - OPEN
+      - SUSPENDED
+      - CLOSED
+      - SETTLED
+      type: string
+      description: |-
+        * `OPEN` - Abierto
+        * `SUSPENDED` - Suspendido
+        * `CLOSED` - Cerrado
+        * `SETTLED` - Liquidado
+    PatchedEvent:
+      type: object
+      properties:
+        id:
+          type: integer
+          readOnly: true
+        name:
+          type: string
+          maxLength: 200
+        sport:
+          type: string
+          maxLength: 50
+        home_team:
+          type: string
+          maxLength: 100
+        away_team:
+          type: string
+          maxLength: 100
+        starts_at:
+          type: string
+          format: date-time
+        status:
+          $ref: '#/components/schemas/EventStatusEnum'
+        markets:
+          type: array
+          items:
+            $ref: '#/components/schemas/Market'
+          readOnly: true
+    PatchedMarket:
+      type: object
+      properties:
+        id:
+          type: integer
+          readOnly: true
+        name:
+          type: string
+          maxLength: 100
+        market_type:
+          type: string
+          maxLength: 50
+        status:
+          $ref: '#/components/schemas/MarketStatusEnum'
+        selections:
+          type: array
+          items:
+            $ref: '#/components/schemas/Selection'
+          readOnly: true
+    ResultEnum:
+      enum:
+      - PENDING
+      - WON
+      - LOST
+      - VOID
+      type: string
+      description: |-
+        * `PENDING` - Pendiente
+        * `WON` - Ganó
+        * `LOST` - Perdió
+        * `VOID` - Anulado
+    Selection:
+      type: object
+      properties:
+        id:
+          type: integer
+          readOnly: true
+        name:
+          type: string
+          maxLength: 100
+        outcome:
+          type: string
+          maxLength: 50
+        odds:
+          type: string
+          format: decimal
+          pattern: ^-?\d{0,14}(?:\.\d{0,4})?$
+        result:
+          $ref: '#/components/schemas/ResultEnum'
+      required:
+      - id
+      - name
+      - odds
+      - outcome
+    TokenObtainPair:
+      type: object
+      properties:
+        username:
+          type: string
+          writeOnly: true
+        password:
+          type: string
+          writeOnly: true
+        access:
+          type: string
+          readOnly: true
+        refresh:
+          type: string
+          readOnly: true
+      required:
+      - access
+      - password
+      - refresh
+      - username
+  securitySchemes:
+    cookieAuth:
+      type: apiKey
+      in: cookie
+      name: sessionid
+    jwtAuth:
+      type: http
+      scheme: bearer
+      bearerFormat: JWT
