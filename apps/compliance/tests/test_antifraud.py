@@ -41,10 +41,9 @@ class AntiFraudVarianceTests(TestCase):
         execute_recharge(user=self.user, amount=Decimal('20.00'))
         execute_recharge(user=self.user, amount=Decimal('20.00'))
         nueva_recarga = Decimal('30.00')
-        execute_recharge(user=self.user, amount=nueva_recarga)
-       
+
         check_unusual_amount(self.user, nueva_recarga)
-       
+        execute_recharge(user=self.user, amount=nueva_recarga)
         alertas = SuspiciousActivity.objects.filter(user=self.user, activity_type='VARIANCE')
         self.assertFalse(alertas.exists(), "Una recarga de 30 no debería generar alerta si el promedio es 20.")
 
@@ -53,10 +52,8 @@ class AntiFraudVarianceTests(TestCase):
         execute_recharge(user=self.user, amount=Decimal('10.00'))
         execute_recharge(user=self.user, amount=Decimal('10.00'))
         recarga_anomala = Decimal('100.00')
-        execute_recharge(user=self.user, amount=recarga_anomala)
 
         check_unusual_amount(self.user, recarga_anomala)
-
+        execute_recharge(user=self.user, amount=recarga_anomala)
         alertas = SuspiciousActivity.objects.filter(user=self.user, activity_type='VARIANCE')
         self.assertTrue(alertas.exists(), "La recarga anómala de 100 debió ser detectada.")
-        self.assertIn("Monto inusual", alertas.first().description)

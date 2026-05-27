@@ -6,6 +6,7 @@ from .models import SelfExclusion, DepositLimit
 from datetime import timedelta
 from apps.compliance.models import SuspiciousActivity
 from apps.wallet.models import Transaction
+from apps.wallet.models import LedgerEntry
 
 
 def apply_self_exclusion(user, duration_days=None):
@@ -94,4 +95,28 @@ def check_transaction_velocity(user):
             user=user,
             activity_type='VELOCITY',
             description=f"Alerta de Velocidad: El usuario realizó {recent_transactions_count} transacciones en los últimos 60 minutos. Umbral: 5."
+        )
+
+#montoinusual
+def check_unusual_amount(user, amount):
+    """
+    Detecta si un monto excede el 300% del promedio histórico del usuario.
+    Regla estricta: SOLO LECTURA sobre los modelos de wallet.
+    """
+    entradas = LedgerEntry.objects.filter(
+        account__user=user,
+        amount__gt=0
+    ).order_by('-id')[:10]
+
+    if not entradas.exists():
+        return
+
+    total = sum(entrada.amount for entrada in entradas)
+    promedio = total / Decimal(len(entradas))
+    umbral = promedio * Decimal('3.0')
+    if amount > umbral:
+        SuspiciousActivity.objects.create(
+            user=user,
+            activity_type='VARIANCE',
+            description=f"Monto inusual detectado: {amount}. Supera el 300% del promedio histórico ({promedio:.2f})."
         )
