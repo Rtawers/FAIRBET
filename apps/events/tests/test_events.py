@@ -263,3 +263,59 @@ def test_reopen_market_after_delay_reabre_mercado():
 
     market.refresh_from_db()
     assert market.status == "OPEN"
+
+# ============================================================
+# TEST — Mercados adicionales
+# ============================================================
+
+@pytest.mark.django_db
+def test_create_overunder_market():
+    """
+    Over/Under 2.5 goles — 2 selecciones: OVER y UNDER.
+    """
+    event = make_event()
+    market = Market.create_overunder_market(
+        event=event,
+        line=Decimal("2.5"),
+        odds_over=Decimal("1.90"),
+        odds_under=Decimal("1.90"),
+    )
+    assert market.market_type == "over_under"
+    outcomes = set(market.selections.values_list("outcome", flat=True))
+    assert outcomes == {"OVER", "UNDER"}
+    assert market.selections.count() == 2
+
+
+@pytest.mark.django_db
+def test_create_btts_market():
+    """
+    Both Teams To Score — 2 selecciones: BTTS_YES y BTTS_NO.
+    """
+    event = make_event()
+    market = Market.create_btts_market(
+        event=event,
+        odds_yes=Decimal("1.80"),
+        odds_no=Decimal("2.00"),
+    )
+    assert market.market_type == "btts"
+    outcomes = set(market.selections.values_list("outcome", flat=True))
+    assert outcomes == {"BTTS_YES", "BTTS_NO"}
+    assert market.selections.count() == 2
+
+
+@pytest.mark.django_db
+def test_create_handicap_market():
+    """
+    Hándicap asiático simple — 2 selecciones: HANDICAP_HOME y HANDICAP_AWAY.
+    """
+    event = make_event()
+    market = Market.create_handicap_market(
+        event=event,
+        handicap=Decimal("-1.5"),
+        odds_home=Decimal("2.10"),
+        odds_away=Decimal("1.75"),
+    )
+    assert market.market_type == "handicap"
+    outcomes = set(market.selections.values_list("outcome", flat=True))
+    assert outcomes == {"HANDICAP_HOME", "HANDICAP_AWAY"}
+    assert market.selections.count() == 2
