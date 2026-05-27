@@ -1,0 +1,73 @@
+{% extends "base.html" %}
+
+{% block title %}Iniciar sesión — FairBet{% endblock %}
+
+{% block content %}
+<div style="max-width: 400px; margin: 80px auto; font-family: sans-serif;">
+
+  <h1 style="text-align: center; color: #2c5282;">FairBet Lab</h1>
+  <p style="text-align: center; color: #666;">Plataforma educativa · Fichas virtuales</p>
+
+  <div style="background: #fff; border: 1px solid #ddd; padding: 32px; border-radius: 8px; margin-top: 24px;">
+    <h2 style="margin-top: 0;">Iniciar sesión</h2>
+
+    <label style="display: block; margin-bottom: 6px; font-weight: bold;">Usuario</label>
+    <input type="text" id="username" placeholder="Tu usuario"
+           style="width: 100%; padding: 10px; margin-bottom: 16px; font-size: 1em; box-sizing: border-box; border: 1px solid #ccc; border-radius: 4px;">
+
+    <label style="display: block; margin-bottom: 6px; font-weight: bold;">Contraseña</label>
+    <input type="password" id="password" placeholder="Tu contraseña"
+           style="width: 100%; padding: 10px; margin-bottom: 20px; font-size: 1em; box-sizing: border-box; border: 1px solid #ccc; border-radius: 4px;">
+
+    <button onclick="login()"
+            style="width: 100%; padding: 12px; background: #2c5282; color: white; border: none; border-radius: 6px; font-size: 1em; cursor: pointer;">
+      Entrar
+    </button>
+
+    <p id="msg-login" style="margin-top: 12px; color: red; text-align: center;"></p>
+  </div>
+
+</div>
+
+<script>
+  async function login() {
+    const username = document.getElementById('username').value;
+    const password = document.getElementById('password').value;
+    const msg = document.getElementById('msg-login');
+
+    if (!username || !password) {
+      msg.textContent = 'Completá usuario y contraseña.';
+      return;
+    }
+
+    const res = await fetch('/api/accounts/token/', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ username, password })
+    });
+
+    const data = await res.json();
+
+    if (res.ok) {
+      localStorage.setItem('access_token', data.access);
+      localStorage.setItem('refresh_token', data.refresh);
+      msg.style.color = 'green';
+      msg.textContent = '✅ Login exitoso. Redirigiendo...';
+      setTimeout(() => { window.location.href = '/wallet/'; }, 1000);
+    } else {
+      msg.style.color = 'red';
+      msg.textContent = '❌ Usuario o contraseña incorrectos.';
+    }
+  }
+
+  // Permitir login con Enter
+  document.addEventListener('keydown', (e) => {
+    if (e.key === 'Enter') login();
+  });
+
+  // Si ya tiene token, redirigir directo al wallet
+  if (localStorage.getItem('access_token')) {
+    window.location.href = '/wallet/';
+  }
+</script>
+{% endblock %}
