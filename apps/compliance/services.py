@@ -3,6 +3,9 @@ from decimal import Decimal
 from django.utils import timezone
 from django.core.exceptions import PermissionDenied, ValidationError
 from .models import SelfExclusion, DepositLimit
+from datetime import timedelta
+from apps.compliance.models import SuspiciousActivity
+from apps.wallet.models import Transaction
 
 
 def apply_self_exclusion(user, duration_days=None):
@@ -72,3 +75,23 @@ def validate_deposit(user, amount):
     if active_limit is not None and amount > active_limit:
         raise ValidationError("El monto de recarga excede el límite diario configurado")  
     return True
+
+#Antifraud
+def check_transaction_velocity(user):
+    """
+    Revisa si el usuario ha excedido el límite de 5 transacciones en la última hora.
+    Si lo excede, registra una alerta de actividad sospechosa.
+    """
+    time_threshold = timezone.now() - timedelta(minutes=60)
+
+    recent_transactions_count = Transaction.objects.filter(
+        entries__account__user=user,
+        created_at__gte=time_threshold
+    ).distinct().count()
+
+    if recent_transactions_count > 5:
+        SuspiciousActivity.objects.create(
+            user=user,
+            activity_type='VELOCITY',
+            description=f"Alerta de Velocidad: El usuario realizó {recent_transactions_count} transacciones en los últimos 60 minutos. Umbral: 5."
+        )
