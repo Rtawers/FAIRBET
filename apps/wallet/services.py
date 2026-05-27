@@ -195,3 +195,65 @@ def execute_bet_settlement(bet, won: bool) -> 'Transaction':
 
         bet_locked.save(update_fields=['status'])
         return tx
+def acreditar_bono(user: User, monto: Decimal) -> 'Transaction':
+    """
+    Acredita un bono de bienvenida a la cuenta BONUS del usuario.
+
+    Partida doble:
+      CASA   DEBIT  monto
+      BONUS  CREDIT monto
+      Suma firmada = 0
+
+    Crea la cuenta BONUS si no existe.
+
+    Raises:
+      ValueError: si monto <= 0.
+    """
+    from apps.wallet.models import Account, LedgerEntry, Transaction
+
+    if monto <= Decimal('0'):
+        raise ValueError(
+            f'El monto del bono debe ser mayor a cero. Recibido: {monto}'
+        )
+
+    with transaction.atomic():
+        casa = Account.objects.get(type=Account.AccountType.CASA)
+        bonus, _ = Account.objects.get_or_create(
+            user=user,
+            type=Account.AccountType.BONUS,
+            defaults={'currency': 'PEN'},
+        )
+
+        tx = Transaction.objects.create(kind=Transaction.Kind.RECHARGE)
+
+        LedgerEntry.objects.create(
+            transaction=tx,
+            account=casa,
+            amount=monto,
+            direction=LedgerEntry.Direction.DEBIT,
+        )
+        LedgerEntry.objects.create(
+            transaction=tx,
+            account=bonus,
+            amount=monto,
+            direction=LedgerEntry.Direction.CREDIT,
+        )
+
+        return tx
+def get_monto_bono(user: User) -> Decimal:
+    """
+    Retorna el saldo actual de la cuenta BONUS del usuario.
+    Saldo derivado: SUM(credits) - SUM(debits).
+    Retorna 0 si el usuario no tiene cuenta BONUS.
+    """
+    from apps.wallet.models import Account, LedgerEntry
+
+    try:
+        bonus = Account.objects.get(
+            user=user,
+            type=Account.AccountType.BONUS,
+        )
+    except Account.DoesNotExist:
+        return Decimal('0.0000')
+
+    return _get_balance(bonus)
