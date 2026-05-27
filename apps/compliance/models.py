@@ -35,3 +35,24 @@ class DepositLimit(models.Model):
 
     def __str__(self):
         return f"Límite de {self.user.username}: {self.active_limit}"
+
+#Anti-fraude 
+class SuspiciousActivity(models.Model):
+    ACTIVITY_TYPES = [
+        ('VELOCITY', 'Alta Velocidad de Transacciones'),
+        ('VARIANCE', 'Varianza Anormal de Monto'),
+    ]
+
+    user = models.ForeignKey(
+        settings.AUTH_USER_MODEL, 
+        on_delete=models.CASCADE, 
+        related_name='suspicious_activities'
+    )
+    activity_type = models.CharField(max_length=20, choices=ACTIVITY_TYPES)
+    description = models.TextField(
+        help_text="Detalle técnico del motivo por el cual se disparó la alerta."
+    )
+    created_at = models.DateTimeField(auto_now_add=True)
+
+    def __str__(self):
+        return f"{self.get_activity_type_display()} - {self.user.username}"

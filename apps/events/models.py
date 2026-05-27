@@ -85,6 +85,36 @@ class Market(models.Model):
             Selection.objects.create(market=market, name="Empate",    outcome="DRAW",  odds=odds_draw)
             Selection.objects.create(market=market, name="Visitante", outcome="AWAY",  odds=odds_away)
         return market
+    @classmethod
+    def create_goleador_exacto_market(cls, event, jugadores, odds_sin_goleador):
+        """
+        Crea un mercado de goleador exacto.
+        jugadores: lista de dicts con {"nombre": str, "odds": Decimal}
+        Siempre incluye SIN_GOLEADOR para cubrir empate técnico (0-0).
+        """
+        if event.status == EventStatus.VOIDED:
+            raise ValueError("No se puede crear un mercado sobre un evento anulado.")
+
+        with transaction.atomic():
+            market = cls.objects.create(
+                event=event,
+                name="Goleador Exacto",
+                market_type="goleador_exacto",
+            )
+            for jugador in jugadores:
+                Selection.objects.create(
+                    market=market,
+                    name=jugador["nombre"],
+                    outcome=jugador["nombre"].upper().replace(" ", "_"),
+                    odds=jugador["odds"],
+                )
+            Selection.objects.create(
+                market=market,
+                name="Sin Goleador",
+                outcome="SIN_GOLEADOR",
+                odds=odds_sin_goleador,
+            )
+        return market
 
 
 class SelectionResult(models.TextChoices):
