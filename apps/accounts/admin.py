@@ -1,3 +1,9 @@
-from django.contrib import admin  # noqa: F401
+from django.contrib import admin
+from apps.accounts.models import UserProfile
 
-# Registra aqui los modelos de la app.
+@admin.register(UserProfile)
+class UserProfileAdmin(admin.ModelAdmin):
+    list_display = ['user', 'dni', 'kyc_status']
+    list_filter = ['kyc_status']
+    search_fields = ['user__username', 'dni']
+    list_editable = ['kyc_status']
