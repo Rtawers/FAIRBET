@@ -149,6 +149,19 @@ def main():
     print('Admin:      http://localhost:8000/admin/')
     print('Login:      http://localhost:8000/')
 
-
+    print('\n>> Verificando KYC...')
+from apps.accounts.models import UserProfile
+for username in ['carlos', 'maria']:
+    try:
+        user = User.objects.get(username=username)
+        profile = UserProfile.objects.get(user=user)
+        if profile.kyc_status != 'VERIFIED':
+            profile.kyc_status = 'VERIFIED'
+            profile.save()
+            print(f'  [ok] KYC de {username} actualizado a VERIFIED')
+        else:
+            print(f'  [skip] {username} ya tiene KYC VERIFIED')
+    except Exception as e:
+        print(f'  [error] {username}: {e}')
 if __name__ == '__main__':
     main()
