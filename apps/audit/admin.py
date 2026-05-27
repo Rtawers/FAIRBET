@@ -1,3 +1,6 @@
-from django.contrib import admin  # noqa: F401
+from django.contrib import admin
+from apps.audit.models import AuditLog
 
-# Registra aqui los modelos de la app.
+@admin.register(AuditLog)
+class AuditLogAdmin(admin.ModelAdmin):
+    list_display = ['id', 'created_at']
