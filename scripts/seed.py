@@ -87,7 +87,7 @@ def crear_evento(nombre, local, visitante, horas_desde_ahora=24):
     return event
 
 
-def crear_mercados(event, odds, jugadores_locales, jugadores_visitantes):
+def crear_mercados(event, odds, jugadores):
     tipos_existentes = list(event.markets.values_list('market_type', flat=True))
 
     if '1x2' not in tipos_existentes:
@@ -134,15 +134,12 @@ def crear_mercados(event, odds, jugadores_locales, jugadores_visitantes):
         print(f'  [skip] Handicap {event.name}')
 
     if 'goleador_exacto' not in tipos_existentes:
-        jugadores = []
-        for j in jugadores_locales + jugadores_visitantes:
-            jugadores.append({'nombre': j[0], 'odds': Decimal(str(j[1]))})
         Market.create_goleador_exacto_market(
             event=event,
-            jugadores=jugadores,
+            jugadores=[{'nombre': j[0], 'odds': Decimal(str(j[1]))} for j in jugadores],
             odds_sin_goleador=Decimal('3.20'),
         )
-        print(f'  [ok] Goleador exacto para {event.name}')
+        print(f'  [ok] Goleador para {event.name}')
     else:
         print(f'  [skip] Goleador {event.name}')
 
@@ -184,49 +181,67 @@ def main():
     Event.objects.all().delete()
     print('  [ok] Eventos eliminados')
 
-    print('\n>> Creando eventos deportivos...')
-    e1 = crear_evento('Peru vs Brasil', 'Peru', 'Brasil', horas_desde_ahora=0)
-    e2 = crear_evento('Argentina vs Chile', 'Argentina', 'Chile', horas_desde_ahora=2)
-    e3 = crear_evento('Colombia vs Ecuador', 'Colombia', 'Ecuador', horas_desde_ahora=5)
-    e4 = crear_evento('Uruguay vs Bolivia', 'Uruguay', 'Bolivia', horas_desde_ahora=24)
-    e5 = crear_evento('Venezuela vs Paraguay', 'Venezuela', 'Paraguay', horas_desde_ahora=48)
-    e6 = crear_evento('Mexico vs Costa Rica', 'Mexico', 'Costa Rica', horas_desde_ahora=72)
+    print('\n>> Creando 9 eventos deportivos...')
 
-    # Peru vs Brasil en LIVE para el demo
+    # EN VIVO
+    e1 = crear_evento('Peru vs Brasil', 'Peru', 'Brasil', horas_desde_ahora=0)
+    e2 = crear_evento('Argentina vs Chile', 'Argentina', 'Chile', horas_desde_ahora=0)
+
+    # PROXIMOS (hoy)
+    e3 = crear_evento('Colombia vs Ecuador', 'Colombia', 'Ecuador', horas_desde_ahora=3)
+    e4 = crear_evento('Uruguay vs Bolivia', 'Uruguay', 'Bolivia', horas_desde_ahora=6)
+
+    # PROXIMOS (mañana)
+    e5 = crear_evento('Venezuela vs Paraguay', 'Venezuela', 'Paraguay', horas_desde_ahora=24)
+    e6 = crear_evento('Mexico vs Costa Rica', 'Mexico', 'Costa Rica', horas_desde_ahora=27)
+
+    # PROXIMOS (esta semana)
+    e7 = crear_evento('España vs Francia', 'España', 'Francia', horas_desde_ahora=48)
+    e8 = crear_evento('Brasil vs Argentina', 'Brasil', 'Argentina', horas_desde_ahora=72)
+    e9 = crear_evento('Alemania vs Italia', 'Alemania', 'Italia', horas_desde_ahora=96)
+
+    # Poner en LIVE los primeros 2
     e1.status = EventStatus.LIVE
     e1.save()
     print('  [ok] Peru vs Brasil -> LIVE')
 
+    e2.status = EventStatus.LIVE
+    e2.save()
+    print('  [ok] Argentina vs Chile -> LIVE')
+
     print('\n>> Mercados...')
     mercados_config = [
         (e1, (2.50, 3.20, 2.80, 1.85, 1.95, 1.75, 2.05, 2.20, 1.65),
-         [('Guerrero', 4.50), ('Lapadula', 5.00), ('Cueva', 7.00)],
-         [('Neymar', 3.50), ('Vinicius', 4.00), ('Rodrygo', 5.50)]),
+         [('Guerrero', 4.50), ('Lapadula', 5.00), ('Cueva', 7.00), ('Neymar', 3.50), ('Vinicius', 4.00)]),
 
         (e2, (1.90, 3.50, 3.80, 2.00, 1.80, 1.65, 2.20, 1.80, 2.10),
-         [('Messi', 2.50), ('Di Maria', 5.00), ('Lautaro', 4.00)],
-         [('Alexis', 5.50), ('Vidal', 7.00), ('Vargas', 6.00)]),
+         [('Messi', 2.50), ('Di Maria', 5.00), ('Lautaro', 4.00), ('Alexis', 5.50), ('Vidal', 7.00)]),
 
         (e3, (2.10, 3.00, 3.40, 1.90, 1.90, 1.80, 2.00, 2.10, 1.70),
-         [('Falcao', 4.00), ('Cuadrado', 6.00), ('James', 5.00)],
-         [('Valencia', 5.50), ('Caicedo', 6.50), ('Plata', 7.00)]),
+         [('Falcao', 4.00), ('James', 5.00), ('Valencia', 5.50), ('Caicedo', 6.50)]),
 
         (e4, (1.75, 3.80, 4.20, 1.75, 2.05, 1.70, 2.10, 1.75, 2.20),
-         [('Suarez', 3.50), ('Cavani', 4.00), ('Bentancur', 7.00)],
-         [('Marcelo', 8.00), ('Algaranaz', 9.00), ('Saucedo', 8.50)]),
+         [('Suarez', 3.50), ('Cavani', 4.00), ('Marcelo', 8.00), ('Saucedo', 8.50)]),
 
         (e5, (2.80, 3.10, 2.50, 1.95, 1.85, 1.85, 1.95, 2.30, 1.60),
-         [('Soteldo', 5.00), ('Rondon', 4.50), ('Herrera', 7.00)],
-         [('Sanabria', 4.00), ('Almiron', 3.50), ('Enciso', 6.00)]),
+         [('Soteldo', 5.00), ('Rondon', 4.50), ('Almiron', 3.50), ('Sanabria', 4.00)]),
 
         (e6, (1.60, 3.90, 5.00, 1.70, 2.10, 1.65, 2.25, 1.55, 2.60),
-         [('Lozano', 3.00), ('Raul', 5.00), ('Herrera', 6.00)],
-         [('Campbell', 5.50), ('Tejeda', 7.00), ('Venegas', 8.00)]),
+         [('Lozano', 3.00), ('Raul', 5.00), ('Campbell', 5.50), ('Tejeda', 7.00)]),
+
+        (e7, (2.20, 3.30, 3.10, 1.80, 2.00, 1.70, 2.15, 2.00, 1.80),
+         [('Morata', 4.00), ('Pedri', 5.50), ('Mbappe', 2.80), ('Benzema', 3.50)]),
+
+        (e8, (1.95, 3.40, 3.60, 1.90, 1.90, 1.75, 2.05, 1.85, 2.00),
+         [('Neymar', 3.00), ('Vinicius', 3.50), ('Messi', 2.80), ('Di Maria', 5.00)]),
+
+        (e9, (2.30, 3.20, 2.90, 1.85, 1.95, 1.80, 2.00, 2.10, 1.75),
+         [('Muller', 4.50), ('Gnabry', 5.00), ('Immobile', 4.00), ('Insigne', 5.50)]),
     ]
 
-    for event, odds, jug_local, jug_visitante in mercados_config:
+    for event, odds, jugadores in mercados_config:
         try:
-            crear_mercados(event, odds, jug_local, jug_visitante)
+            crear_mercados(event, odds, jugadores)
         except Exception as e:
             print(f'  [error] {event.name}: {e}')
 
@@ -251,9 +266,10 @@ def main():
     print('  User 2: maria  / maria123  (S/ 300)')
     print('  User 3: pedro  / pedro123  (S/ 1000)')
     print('  User 4: ana    / ana12345  (S/ 250)')
-    print('\nEventos LIVE: Peru vs Brasil')
-    print('Eventos proximos: Argentina vs Chile, Colombia vs Ecuador')
-    print('Eventos futuros:  Uruguay vs Bolivia, Venezuela vs Paraguay, Mexico vs Costa Rica')
+    print('\nEventos LIVE:    Peru vs Brasil, Argentina vs Chile')
+    print('Proximos hoy:    Colombia vs Ecuador, Uruguay vs Bolivia')
+    print('Proximos mañana: Venezuela vs Paraguay, Mexico vs Costa Rica')
+    print('Esta semana:     España vs Francia, Brasil vs Argentina, Alemania vs Italia')
     print('\nSwagger UI: http://localhost:8000/api/schema/swagger-ui/')
     print('Admin:      http://localhost:8000/admin/')
     print('Login:      http://localhost:8000/')

@@ -36,9 +36,8 @@ class MarketViewSet(viewsets.ModelViewSet):
     serializer_class = MarketSerializer
 
     def get_permissions(self):
-        if self.action in ["create", "update", "partial_update", "destroy",
-                   "update_odds_action"]:
-                return [IsAdminUser()]
+        if self.action in ["create", "update", "partial_update", "destroy"]:
+            return [IsAdminUser()]
         return [IsAuthenticated()]
 
     @action(detail=True, methods=["post"], url_path="odds")
