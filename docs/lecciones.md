@@ -47,3 +47,11 @@ efectos secundarios difíciles de controlar en tests — mejor ser explícito.
 
 **Regla:** Si una señal rompe tests existentes, preferir lógica explícita en el servicio 
 o vista correspondiente.
+
+### Intento fallido: Error de campo inexistente al filtrar historial para regla de varianza
+
+- **Contexto:** Desarrollo de la regla de Varianza (ADR-0014) en el módulo de Compliance, intentando obtener las últimas 10 transacciones del usuario desde `LedgerEntry` para calcular su promedio histórico.
+- **Error:** `FieldError: Cannot resolve keyword 'created_at' into field. Choices are: account, amount, direction, id, transaction...`
+- **Causa raiz:** Intentamos ordenar el historial usando `.order_by('-created_at')` asumiendo que el campo existía. Sin embargo, el modelo `LedgerEntry` (diseñado por Wallet) no tenía ese campo directamente, ya que la fecha se guardaba en el modelo padre (`Transaction`).
+- **Solucion:** Reemplazar `-created_at` por `-id` en el método `order_by()`. Como los IDs son autoincrementales en la base de datos relacional, el ID más alto siempre corresponde al registro más nuevo, logrando el mismo orden cronológico sin hacer *joins*.
+- **Leccion:** Al aplicar el principio de "Solo Lectura" sobre modelos de otros módulos, SIEMPRE se debe revisar el Diagrama ER final de los compañeros. Además, aprovechar las propiedades de las bases de datos relacionales (como IDs secuenciales) evita consultas complejas y errores del ORM.
