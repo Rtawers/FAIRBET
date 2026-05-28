@@ -23,3 +23,6 @@ def mis_apuestas_view(request):
 
 def perfil_view(request):
     return render(request, 'perfil.html')
+
+def dashboard_view(request):
+    return render(request, 'dashboard.html')

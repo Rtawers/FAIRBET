@@ -1,0 +1,99 @@
+{% extends "base.html" %}
+
+{% block title %}Dashboard Operador — FairBet Lab{% endblock %}
+
+{% block content %}
+<h2 class="mb-4"><i class="bi bi-graph-up-arrow"></i> Dashboard del Operador</h2>
+<p class="text-muted">Métricas de negocio en tiempo real. Solo accesible para administradores.</p>
+
+<div id="dashboard-container" class="row g-4">
+  <div class="col-12 text-center py-5">
+    <div class="spinner-border text-primary"></div>
+    <p class="mt-2 text-muted">Cargando métricas...</p>
+  </div>
+</div>
+
+<div class="mt-4">
+  <button onclick="descargarCSV()" class="btn btn-success">
+    <i class="bi bi-file-earmark-spreadsheet"></i> Descargar reporte MINCETUR (CSV)
+  </button>
+</div>
+{% endblock %}
+
+{% block scripts %}
+<script>
+const TOKEN = localStorage.getItem('access_token');
+if (!TOKEN) window.location.href = '/';
+
+async function cargarMetricas() {
+  const res = await fetch('/api/dashboard/metrics/', {
+    headers: { 'Authorization': `Bearer ${TOKEN}` }
+  });
+
+  const container = document.getElementById('dashboard-container');
+
+  if (res.status === 401) {
+    container.innerHTML = '<div class="col-12"><div class="alert alert-warning">Tu sesión expiró. <a href="/">Volver a entrar</a>.</div></div>';
+    return;
+  }
+  if (res.status === 403) {
+    container.innerHTML = '<div class="col-12"><div class="alert alert-danger">Acceso denegado. Solo administradores pueden ver el dashboard.</div></div>';
+    return;
+  }
+
+  const data = await res.json();
+
+  container.innerHTML = `
+    <div class="col-md-4">
+      <div class="card border-0 bg-primary text-white shadow h-100">
+        <div class="card-body p-4">
+          <h6 class="opacity-75"><i class="bi bi-cash-stack"></i> GGR (Ganancia Bruta)</h6>
+          <h2 class="fw-bold mb-0">S/ ${parseFloat(data.ggr).toFixed(2)}</h2>
+          <small class="opacity-75">Ganancia de juego de la plataforma</small>
+        </div>
+      </div>
+    </div>
+    <div class="col-md-4">
+      <div class="card border-0 bg-danger text-white shadow h-100">
+        <div class="card-body p-4">
+          <h6 class="opacity-75"><i class="bi bi-exclamation-triangle"></i> Exposure (Riesgo Vivo)</h6>
+          <h2 class="fw-bold mb-0">S/ ${parseFloat(data.exposure).toFixed(2)}</h2>
+          <small class="opacity-75">Pago potencial si ganan todas las apuestas activas</small>
+        </div>
+      </div>
+    </div>
+    <div class="col-md-4">
+      <div class="card border-0 bg-success text-white shadow h-100">
+        <div class="card-body p-4">
+          <h6 class="opacity-75"><i class="bi bi-bar-chart"></i> Volumen Apostado</h6>
+          <h2 class="fw-bold mb-0">S/ ${parseFloat(data.volumen.total_apostado).toFixed(2)}</h2>
+          <small class="opacity-75">${data.volumen.numero_apuestas} apuestas activas</small>
+        </div>
+      </div>
+    </div>
+  `;
+}
+
+function descargarCSV() {
+  // Descarga autenticada del reporte CSV
+  fetch('/api/dashboard/report/csv/', {
+    headers: { 'Authorization': `Bearer ${TOKEN}` }
+  })
+  .then(res => {
+    if (!res.ok) throw new Error('No autorizado o error en el reporte');
+    return res.blob();
+  })
+  .then(blob => {
+    const url = window.URL.createObjectURL(blob);
+    const a = document.createElement('a');
+    a.href = url;
+    a.download = 'reporte_mincetur.csv';
+    a.click();
+    window.URL.revokeObjectURL(url);
+  })
+  .catch(err => alert(err.message));
+}
+
+cargarMetricas();
+</script>
+{% endblock %}
