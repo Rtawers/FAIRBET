@@ -30,3 +30,20 @@
 - **Solución:** agregar `asyncio_mode = auto` en pytest.ini.
 - **Lección:** instalar pytest-asyncio no es suficiente — hay que
   configurarlo en pytest.ini con asyncio_mode = auto.
+
+## Lección: Señales de Django y efectos secundarios en tests
+
+**Problema:** Al agregar una señal `post_save` en `accounts/models.py` para crear 
+automáticamente la cuenta WALLET al registrar un usuario, los tests empezaron a fallar 
+con `MultipleObjectsReturned`. 
+
+**Causa:** Los tests crean usuarios manualmente en su `setUp` y también crean la cuenta 
+WALLET explícitamente. La señal disparaba adicionalmente creando una segunda cuenta 
+WALLET — resultando en 2 cuentas por usuario.
+
+**Solución:** Quitar la señal y manejar la creación de la cuenta WALLET directamente 
+en el `register_user` view con `get_or_create`. Las señales son potentes pero tienen 
+efectos secundarios difíciles de controlar en tests — mejor ser explícito.
+
+**Regla:** Si una señal rompe tests existentes, preferir lógica explícita en el servicio 
+o vista correspondiente.
