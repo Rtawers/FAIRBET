@@ -1,3 +1,4 @@
+{% load static %}
 <!doctype html>
 <html lang="es">
 <head>
@@ -6,49 +7,28 @@
   <title>{% block title %}FairBet Lab{% endblock %}</title>
   <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/css/bootstrap.min.css" rel="stylesheet">
   <link href="https://cdn.jsdelivr.net/npm/bootstrap-icons@1.11.3/font/bootstrap-icons.css" rel="stylesheet">
-  <style>
-    body { background-color: #f8f9fa; }
-    .navbar-brand { font-weight: 700; letter-spacing: 1px; }
-    .responsible-banner {
-      background: #fff3cd;
-      border-bottom: 1px solid #ffc107;
-      font-size: 0.85em;
-      text-align: center;
-      padding: 6px;
-    }
-    footer {
-      background: #1a365d;
-      color: #a0aec0;
-      font-size: 0.80em;
-      text-align: center;
-      padding: 16px;
-      margin-top: 48px;
-    }
-  </style>
+  <link href="{% static 'css/fairbet.css' %}" rel="stylesheet">
 </head>
 <body>
 
-  <!-- Banner consumo responsable (Ley 31557) -->
+  <!-- Banner consumo responsable -->
   <div class="responsible-banner">
-    <i class="bi bi-exclamation-triangle-fill text-warning"></i>
+    <i class="bi bi-shield-check"></i>
     Juega con responsabilidad. Solo fichas virtuales sin valor monetario real.
   </div>
 
   <!-- Navbar -->
-  <nav class="navbar navbar-expand-lg navbar-dark bg-primary">
+  <nav class="navbar navbar-expand-lg">
     <div class="container">
-      <a class="navbar-brand" href="/">
-        <i class="bi bi-dice-5"></i> FairBet Lab
+      <a class="navbar-brand" href="/eventos/">
+        <i class="bi bi-dice-5-fill"></i> FAIRBET <span style="font-size:0.7rem;font-weight:400;opacity:0.5;">LAB</span>
       </a>
-      <div class="navbar-nav ms-auto">
+      <div class="navbar-nav ms-auto d-flex flex-row gap-3">
         <a class="nav-link" href="/eventos/"><i class="bi bi-calendar-event"></i> Eventos</a>
         <a class="nav-link" href="/mis-apuestas/"><i class="bi bi-list-check"></i> Mis Apuestas</a>
         <a class="nav-link" href="/wallet/"><i class="bi bi-wallet2"></i> Wallet</a>
-        <a class="nav-link" href="/api/schema/swagger-ui/" target="_blank">
-          
-          <i class="bi bi-code-slash"></i> API
-        </a>
-        <a class="nav-link" href="#" onclick="logout()">
+        <a class="nav-link" href="/api/schema/swagger-ui/" target="_blank"><i class="bi bi-code-slash"></i> API</a>
+        <a class="nav-link" href="#" onclick="logout()" style="color:#e53935!important">
           <i class="bi bi-box-arrow-right"></i> Salir
         </a>
       </div>

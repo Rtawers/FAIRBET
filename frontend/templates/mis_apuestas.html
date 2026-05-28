@@ -4,6 +4,52 @@
 
 {% block content %}
 <h2 class="mb-4"><i class="bi bi-list-check"></i> Mis Apuestas</h2>
+
+<!-- Resumen financiero -->
+<div class="row g-3 mb-4" id="resumen" style="display:none!important">
+  <div class="col-md-3">
+    <div class="card bg-primary text-white text-center">
+      <div class="card-body py-3">
+        <h6>Total apostado</h6>
+        <h4 id="res-total">S/ 0.00</h4>
+      </div>
+    </div>
+  </div>
+  <div class="col-md-3">
+    <div class="card bg-success text-white text-center">
+      <div class="card-body py-3">
+        <h6>Ganancia potencial</h6>
+        <h4 id="res-potencial">S/ 0.00</h4>
+      </div>
+    </div>
+  </div>
+  <div class="col-md-3">
+    <div class="card bg-warning text-dark text-center">
+      <div class="card-body py-3">
+        <h6>Saldo actual</h6>
+        <h4 id="res-saldo">S/ 0.00</h4>
+      </div>
+    </div>
+  </div>
+  <div class="col-md-3">
+    <div class="card bg-dark text-white text-center">
+      <div class="card-body py-3">
+        <h6>Total apuestas</h6>
+        <h4 id="res-count">0</h4>
+      </div>
+    </div>
+  </div>
+</div>
+
+<!-- Filtros -->
+<div class="btn-group mb-3" id="filtros" style="display:none!important">
+  <button class="btn btn-primary active" onclick="filtrar('TODAS', this)">Todas</button>
+  <button class="btn btn-outline-warning" onclick="filtrar('ACCEPTED', this)">Pendientes</button>
+  <button class="btn btn-outline-success" onclick="filtrar('WON', this)">Ganadas</button>
+  <button class="btn btn-outline-danger" onclick="filtrar('LOST', this)">Perdidas</button>
+  <button class="btn btn-outline-secondary" onclick="filtrar('CANCELLED', this)">Canceladas</button>
+</div>
+
 <div id="lista-apuestas">
   <div class="text-center py-5">
     <div class="spinner-border text-primary"></div>
@@ -73,7 +119,18 @@ const ESTADO_LABEL = {
   'CANCELLED': 'Cancelada',
 };
 
+let todasLasApuestas = [];
 let cashoutActual = null;
+
+async function cargarSaldo() {
+  const res = await fetch('/api/wallet/balance/', {
+    headers: { 'Authorization': `Bearer ${TOKEN}` }
+  });
+  const data = await res.json();
+  if (res.ok) {
+    document.getElementById('res-saldo').textContent = `S/ ${parseFloat(data.balance).toFixed(2)}`;
+  }
+}
 
 async function cargarApuestas() {
   const res = await fetch('/api/betting/bets/mine/', {
@@ -86,11 +143,10 @@ async function cargarApuestas() {
     return;
   }
 
-  const apuestas = await res.json();
-  const container = document.getElementById('lista-apuestas');
+  todasLasApuestas = await res.json();
 
-  if (!apuestas.length) {
-    container.innerHTML = `
+  if (!todasLasApuestas.length) {
+    document.getElementById('lista-apuestas').innerHTML = `
       <div class="text-center py-5">
         <i class="bi bi-inbox display-1 text-muted"></i>
         <p class="mt-3 text-muted">No tenes apuestas todavia.</p>
@@ -101,6 +157,26 @@ async function cargarApuestas() {
     return;
   }
 
+  // Mostrar resumen y filtros
+  document.getElementById('resumen').style.display = 'flex';
+  document.getElementById('filtros').style.display = 'flex';
+
+  // Calcular resumen
+  const totalApostado = todasLasApuestas.reduce((s, b) => s + parseFloat(b.amount), 0);
+  const totalPotencial = todasLasApuestas
+    .filter(b => b.status === 'ACCEPTED')
+    .reduce((s, b) => s + parseFloat(b.potential_payout), 0);
+
+  document.getElementById('res-total').textContent = `S/ ${totalApostado.toFixed(2)}`;
+  document.getElementById('res-potencial').textContent = `S/ ${totalPotencial.toFixed(2)}`;
+  document.getElementById('res-count').textContent = todasLasApuestas.length;
+
+  cargarSaldo();
+  renderTabla(todasLasApuestas);
+}
+
+function renderTabla(apuestas) {
+  const container = document.getElementById('lista-apuestas');
   container.innerHTML = `
     <div class="table-responsive">
       <table class="table table-hover align-middle">
@@ -169,6 +245,26 @@ async function cargarApuestas() {
   `;
 }
 
+function filtrar(estado, btn) {
+  // Actualizar botones activos
+  document.querySelectorAll('#filtros button').forEach(b => {
+    b.classList.remove('active', 'btn-primary', 'btn-warning', 'btn-success', 'btn-danger', 'btn-secondary');
+    b.classList.add('btn-outline-' + (
+      b.textContent.includes('Todas') ? 'primary' :
+      b.textContent.includes('Pendientes') ? 'warning' :
+      b.textContent.includes('Ganadas') ? 'success' :
+      b.textContent.includes('Perdidas') ? 'danger' : 'secondary'
+    ));
+  });
+  btn.classList.add('active');
+
+  const filtradas = estado === 'TODAS'
+    ? todasLasApuestas
+    : todasLasApuestas.filter(b => b.status === estado);
+
+  renderTabla(filtradas);
+}
+
 function abrirCashout(betId, odds, monto) {
   const factor_casa = 0.85;
   const pago = (parseFloat(monto) * parseFloat(odds) * factor_casa).toFixed(2);
@@ -180,6 +276,10 @@ function abrirCashout(betId, odds, monto) {
   document.getElementById('co-monto').textContent = `S/ ${parseFloat(monto).toFixed(2)}`;
   document.getElementById('co-pago').textContent = `S/ ${pago}`;
   document.getElementById('co-msg').innerHTML = '';
+
+  const btn = document.getElementById('btn-confirmar-cashout');
+  btn.disabled = false;
+  btn.innerHTML = '<i class="bi bi-cash"></i> Confirmar Cash-out';
 
   new bootstrap.Modal(document.getElementById('modalCashout')).show();
 }
@@ -209,6 +309,7 @@ document.getElementById('btn-confirmar-cashout').addEventListener('click', async
 
   if (res.ok) {
     msg.innerHTML = `<div class="alert alert-success mt-2">✅ Cash-out exitoso. Saldo acreditado a tu wallet.</div>`;
+    cargarSaldo();
     setTimeout(() => {
       bootstrap.Modal.getInstance(document.getElementById('modalCashout')).hide();
       cargarApuestas();
