@@ -3,20 +3,44 @@
 {% block title %}Dashboard Operador — FairBet Lab{% endblock %}
 
 {% block content %}
-<h2 class="mb-4"><i class="bi bi-graph-up-arrow"></i> Dashboard del Operador</h2>
-<p class="text-muted">Métricas de negocio en tiempo real. Solo accesible para administradores.</p>
+<div class="d-flex justify-content-between align-items-center mb-4">
+  <h2 class="mb-0"><i class="bi bi-graph-up-arrow"></i> Dashboard del Operador</h2>
+  <button onclick="descargarCSV()" class="btn btn-success btn-sm">
+    <i class="bi bi-file-earmark-spreadsheet"></i> Reporte MINCETUR CSV
+  </button>
+</div>
 
-<div id="dashboard-container" class="row g-4">
+<!-- Métricas principales -->
+<div id="dashboard-container" class="row g-3 mb-4">
   <div class="col-12 text-center py-5">
     <div class="spinner-border text-primary"></div>
     <p class="mt-2 text-muted">Cargando métricas...</p>
   </div>
 </div>
 
-<div class="mt-4">
-  <button onclick="descargarCSV()" class="btn btn-success">
-    <i class="bi bi-file-earmark-spreadsheet"></i> Descargar reporte MINCETUR (CSV)
-  </button>
+<!-- Apuestas activas -->
+<div class="row g-3">
+  <div class="col-md-6">
+    <div class="card">
+      <div class="card-header d-flex justify-content-between align-items-center">
+        <span><i class="bi bi-list-check"></i> Apuestas activas</span>
+        <span id="total-apuestas" class="badge bg-primary">—</span>
+      </div>
+      <div class="card-body p-0">
+        <div id="lista-apuestas" class="p-3 text-center text-muted">Cargando...</div>
+      </div>
+    </div>
+  </div>
+  <div class="col-md-6">
+    <div class="card">
+      <div class="card-header">
+        <i class="bi bi-calendar-event"></i> Eventos activos
+      </div>
+      <div class="card-body p-0">
+        <div id="lista-eventos" class="p-3 text-center text-muted">Cargando...</div>
+      </div>
+    </div>
+  </div>
 </div>
 {% endblock %}
 
@@ -24,6 +48,13 @@
 <script>
 const TOKEN = localStorage.getItem('access_token');
 if (!TOKEN) window.location.href = '/';
+
+// Verificar si es admin
+fetch('/api/accounts/me/', {
+  headers: { 'Authorization': `Bearer ${TOKEN}` }
+}).then(r => r.json()).then(data => {
+  if (!data.is_staff) window.location.href = '/eventos/';
+});
 
 async function cargarMetricas() {
   const res = await fetch('/api/dashboard/metrics/', {
@@ -33,49 +64,156 @@ async function cargarMetricas() {
   const container = document.getElementById('dashboard-container');
 
   if (res.status === 401) {
-    container.innerHTML = '<div class="col-12"><div class="alert alert-warning">Tu sesión expiró. <a href="/">Volver a entrar</a>.</div></div>';
+    container.innerHTML = '<div class="col-12"><div class="alert alert-warning">Sesión expirada. <a href="/">Volver a entrar</a>.</div></div>';
     return;
   }
   if (res.status === 403) {
-    container.innerHTML = '<div class="col-12"><div class="alert alert-danger">Acceso denegado. Solo administradores pueden ver el dashboard.</div></div>';
+    container.innerHTML = '<div class="col-12"><div class="alert alert-danger">Acceso denegado. Solo administradores.</div></div>';
     return;
   }
 
   const data = await res.json();
 
   container.innerHTML = `
-    <div class="col-md-4">
-      <div class="card border-0 bg-primary text-white shadow h-100">
-        <div class="card-body p-4">
-          <h6 class="opacity-75"><i class="bi bi-cash-stack"></i> GGR (Ganancia Bruta)</h6>
-          <h2 class="fw-bold mb-0">S/ ${parseFloat(data.ggr).toFixed(2)}</h2>
-          <small class="opacity-75">Ganancia de juego de la plataforma</small>
+    <div class="col-md-3">
+      <div class="card text-center" style="border-color:var(--fb-green)">
+        <div class="card-body py-3">
+          <i class="bi bi-cash-stack" style="font-size:1.5rem; color:var(--fb-green)"></i>
+          <h3 class="mt-2 mb-0" style="color:var(--fb-green)">S/ ${parseFloat(data.ggr).toFixed(2)}</h3>
+          <small style="color:var(--fb-muted)">GGR — Ganancia Bruta</small>
         </div>
       </div>
     </div>
-    <div class="col-md-4">
-      <div class="card border-0 bg-danger text-white shadow h-100">
-        <div class="card-body p-4">
-          <h6 class="opacity-75"><i class="bi bi-exclamation-triangle"></i> Exposure (Riesgo Vivo)</h6>
-          <h2 class="fw-bold mb-0">S/ ${parseFloat(data.exposure).toFixed(2)}</h2>
-          <small class="opacity-75">Pago potencial si ganan todas las apuestas activas</small>
+    <div class="col-md-3">
+      <div class="card text-center" style="border-color:#e53935">
+        <div class="card-body py-3">
+          <i class="bi bi-exclamation-triangle" style="font-size:1.5rem; color:#e53935"></i>
+          <h3 class="mt-2 mb-0" style="color:#e53935">S/ ${parseFloat(data.exposure).toFixed(2)}</h3>
+          <small style="color:var(--fb-muted)">Exposure — Riesgo vivo</small>
         </div>
       </div>
     </div>
-    <div class="col-md-4">
-      <div class="card border-0 bg-success text-white shadow h-100">
-        <div class="card-body p-4">
-          <h6 class="opacity-75"><i class="bi bi-bar-chart"></i> Volumen Apostado</h6>
-          <h2 class="fw-bold mb-0">S/ ${parseFloat(data.volumen.total_apostado).toFixed(2)}</h2>
-          <small class="opacity-75">${data.volumen.numero_apuestas} apuestas activas</small>
+    <div class="col-md-3">
+      <div class="card text-center" style="border-color:var(--fb-gold)">
+        <div class="card-body py-3">
+          <i class="bi bi-bar-chart" style="font-size:1.5rem; color:var(--fb-gold)"></i>
+          <h3 class="mt-2 mb-0" style="color:var(--fb-gold)">S/ ${parseFloat(data.volumen.total_apostado).toFixed(2)}</h3>
+          <small style="color:var(--fb-muted)">Volumen apostado</small>
+        </div>
+      </div>
+    </div>
+    <div class="col-md-3">
+      <div class="card text-center">
+        <div class="card-body py-3">
+          <i class="bi bi-people" style="font-size:1.5rem; color:var(--fb-text)"></i>
+          <h3 class="mt-2 mb-0">${data.volumen.numero_apuestas}</h3>
+          <small style="color:var(--fb-muted)">Apuestas activas</small>
+        </div>
+      </div>
+    </div>
+
+    <!-- Margen GGR -->
+    <div class="col-12">
+      <div class="card">
+        <div class="card-body py-2">
+          <div class="d-flex justify-content-between align-items-center mb-1">
+            <small style="color:var(--fb-muted)">Margen GGR vs Volumen</small>
+            <small style="color:var(--fb-green)">${parseFloat(data.volumen.total_apostado) > 0 ? ((parseFloat(data.ggr) / parseFloat(data.volumen.total_apostado)) * 100).toFixed(1) : 0}%</small>
+          </div>
+          <div class="progress" style="height:6px; background:#1c2030;">
+            <div class="progress-bar" style="background:var(--fb-green); width:${parseFloat(data.volumen.total_apostado) > 0 ? Math.min((parseFloat(data.ggr) / parseFloat(data.volumen.total_apostado)) * 100, 100) : 0}%"></div>
+          </div>
         </div>
       </div>
     </div>
   `;
 }
 
+async function cargarApuestasActivas() {
+  try {
+    const res = await fetch('/api/betting/bets/mine/', {
+      headers: { 'Authorization': `Bearer ${TOKEN}` }
+    });
+    const data = await res.json();
+    const container = document.getElementById('lista-apuestas');
+    const total = document.getElementById('total-apuestas');
+
+    if (!data.length) {
+      container.innerHTML = '<p class="text-muted py-2">No hay apuestas activas.</p>';
+      return;
+    }
+
+    total.textContent = data.length;
+
+    container.innerHTML = `
+      <table class="table table-hover mb-0" style="font-size:0.85rem;">
+        <thead style="background:#0a0f1e">
+          <tr>
+            <th style="color:var(--fb-muted)">#</th>
+            <th style="color:var(--fb-muted)">Cuota</th>
+            <th style="color:var(--fb-muted)">Monto</th>
+            <th style="color:var(--fb-muted)">Estado</th>
+          </tr>
+        </thead>
+        <tbody>
+          ${data.slice(0, 8).map(b => `
+            <tr>
+              <td style="color:var(--fb-muted)">#${b.id}</td>
+              <td><span class="badge bg-primary">${parseFloat(b.odds).toFixed(2)}</span></td>
+              <td>S/ ${parseFloat(b.amount).toFixed(2)}</td>
+              <td>
+                <span class="badge bg-${b.status === 'ACCEPTED' ? 'warning' : b.status === 'WON' ? 'success' : 'danger'}">
+                  ${b.status === 'ACCEPTED' ? 'Pendiente' : b.status === 'WON' ? 'Ganada' : 'Perdida'}
+                </span>
+              </td>
+            </tr>
+          `).join('')}
+        </tbody>
+      </table>
+    `;
+  } catch(e) {}
+}
+
+async function cargarEventos() {
+  try {
+    const res = await fetch('/api/events/events/', {
+      headers: { 'Authorization': `Bearer ${TOKEN}` }
+    });
+    const data = await res.json();
+    const eventos = data.results || data;
+    const container = document.getElementById('lista-eventos');
+
+    const colores = { 'LIVE': '#e53935', 'SCHEDULED': 'var(--fb-green)', 'FINISHED': '#666', 'SUSPENDED': 'var(--fb-gold)' };
+    const labels = { 'LIVE': '● EN VIVO', 'SCHEDULED': 'PROGRAMADO', 'FINISHED': 'FINALIZADO', 'SUSPENDED': 'SUSPENDIDO' };
+
+    container.innerHTML = `
+      <table class="table table-hover mb-0" style="font-size:0.85rem;">
+        <thead style="background:#0a0f1e">
+          <tr>
+            <th style="color:var(--fb-muted)">Partido</th>
+            <th style="color:var(--fb-muted)">Estado</th>
+            <th style="color:var(--fb-muted)">Mercados</th>
+          </tr>
+        </thead>
+        <tbody>
+          ${eventos.slice(0, 8).map(ev => `
+            <tr>
+              <td>${ev.home_team} vs ${ev.away_team}</td>
+              <td>
+                <span class="badge" style="background-color:${colores[ev.status] || '#666'}; font-size:0.7rem;">
+                  ${labels[ev.status] || ev.status}
+                </span>
+              </td>
+              <td><small style="color:var(--fb-muted)">${ev.markets ? ev.markets.length : 0} mercados</small></td>
+            </tr>
+          `).join('')}
+        </tbody>
+      </table>
+    `;
+  } catch(e) {}
+}
+
 function descargarCSV() {
-  // Descarga autenticada del reporte CSV
   fetch('/api/dashboard/report/csv/', {
     headers: { 'Authorization': `Bearer ${TOKEN}` }
   })
@@ -95,5 +233,14 @@ function descargarCSV() {
 }
 
 cargarMetricas();
+cargarApuestasActivas();
+cargarEventos();
+
+// Actualizar cada 60 segundos
+setInterval(() => {
+  cargarMetricas();
+  cargarApuestasActivas();
+  cargarEventos();
+}, 60000);
 </script>
 {% endblock %}
