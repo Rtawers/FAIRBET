@@ -19,6 +19,28 @@ if (!TOKEN) window.location.href = '/';
 
 const EVENT_ID = {{ event_id }};
 
+function badgeEstado(status) {
+  const colores = {
+    'SCHEDULED': 'var(--fb-green)',
+    'LIVE': '#e53935',
+    'FINISHED': '#666',
+    'SUSPENDED': 'var(--fb-gold)',
+    'VOIDED': '#444',
+  };
+  const labels = {
+    'SCHEDULED': 'PROGRAMADO',
+    'LIVE': '🔴 EN VIVO',
+    'FINISHED': 'FINALIZADO',
+    'SUSPENDED': '⚠️ SUSPENDIDO',
+    'VOIDED': 'ANULADO',
+  };
+  return `<span class="badge fs-6" style="background-color:${colores[status] || '#666'}">${labels[status] || status}</span>`;
+}
+
+function puedeApostar(evStatus, mStatus) {
+  return (evStatus === 'SCHEDULED' || evStatus === 'LIVE') && mStatus === 'OPEN';
+}
+
 async function cargarEvento() {
   const res = await fetch(`/api/events/events/${EVENT_ID}/`, {
     headers: { 'Authorization': `Bearer ${TOKEN}` }
@@ -31,27 +53,34 @@ async function cargarEvento() {
   }
 
   const ev = await res.json();
-  // ... resto del código
 
   document.getElementById('evento-container').innerHTML = `
     <div class="d-flex justify-content-between align-items-center mb-4">
       <a href="/eventos/" class="btn btn-outline-secondary btn-sm">
         <i class="bi bi-arrow-left"></i> Volver
       </a>
-      <span class="badge bg-${ev.status === 'LIVE' ? 'danger' : 'success'} fs-6">
-        ${ev.status === 'LIVE' ? '🔴 EN VIVO' : ev.status}
-      </span>
+      ${badgeEstado(ev.status)}
     </div>
 
-    <div class="card shadow mb-4">
-      <div class="card-header bg-primary text-white">
+    <div class="card mb-4">
+      <div class="card-header">
         <h4 class="mb-0">${ev.home_team} vs ${ev.away_team}</h4>
-        <small>${new Date(ev.starts_at).toLocaleString('es-PE')}</small>
+        <small style="color:var(--fb-muted)">${new Date(ev.starts_at).toLocaleString('es-PE')}</small>
       </div>
       <div class="card-body">
+        ${ev.status === 'FINISHED' ? `
+          <div class="alert alert-secondary text-center py-2">
+            <i class="bi bi-flag-fill"></i> Este evento ha finalizado. Ya no se aceptan apuestas.
+          </div>
+        ` : ev.status === 'SUSPENDED' ? `
+          <div class="alert alert-warning text-center py-2">
+            <i class="bi bi-pause-circle"></i> Mercado suspendido temporalmente.
+          </div>
+        ` : ''}
+
         ${ev.markets.map(m => `
           <h5 class="mt-3">${m.name}
-            <span class="badge bg-${m.status === 'OPEN' ? 'success' : 'warning'} ms-2">
+            <span class="badge ms-2" style="background-color:${m.status === 'OPEN' ? 'var(--fb-green)' : 'var(--fb-gold)'}; font-size:0.75rem;">
               ${m.status}
             </span>
           </h5>
@@ -60,15 +89,24 @@ async function cargarEvento() {
               <div class="card flex-grow-1 text-center" style="min-width:120px">
                 <div class="card-body py-3">
                   <p class="mb-1 fw-bold">${s.name}</p>
-                  <h3 class="text-primary mb-2"
+                  <h3 style="color:var(--fb-green)" class="mb-2"
                       data-outcome="${s.outcome}"
                       data-market="${m.id}">
                     ${parseFloat(s.odds).toFixed(2)}
                   </h3>
-                  <button class="btn btn-primary btn-sm w-100"
-                    onclick="seleccionar(${ev.id}, ${m.id}, ${s.id}, '${s.name}', ${s.odds})">
-                    Apostar
-                  </button>
+                  ${puedeApostar(ev.status, m.status) ? `
+                    <button class="btn btn-primary btn-sm w-100"
+                      onclick="seleccionar(${ev.id}, ${m.id}, ${s.id}, '${s.name}', ${s.odds})">
+                      APOSTAR
+                    </button>
+                  ` : `
+                    <button class="btn btn-sm w-100" disabled
+                      style="background:#1c2030; border:1px solid var(--fb-border); color:var(--fb-muted);">
+                      ${ev.status === 'FINISHED' ? 'Finalizado' :
+                        ev.status === 'SUSPENDED' ? 'Suspendido' :
+                        m.status !== 'OPEN' ? 'Cerrado' : 'No disponible'}
+                    </button>
+                  `}
                 </div>
               </div>
             `).join('')}
@@ -81,7 +119,12 @@ async function cargarEvento() {
 
 let seleccionActual = null;
 
-function seleccionar(eventId, marketId, selectionId, nombre, odds) {
+async function seleccionar(eventId, marketId, selectionId, nombre, odds) {
+  const excluido = await verificarAutoexclusion();
+  if (excluido) {
+    alert('❌ Tenés una autoexclusión activa. No podés realizar apuestas.');
+    return;
+  }
   seleccionActual = { eventId, marketId, selectionId, nombre, odds };
   document.getElementById('sel-nombre').textContent = nombre;
   document.getElementById('sel-odds').textContent = parseFloat(odds).toFixed(2);
@@ -90,12 +133,25 @@ function seleccionar(eventId, marketId, selectionId, nombre, odds) {
   new bootstrap.Modal(document.getElementById('modalApuesta')).show();
 }
 
+async function verificarAutoexclusion() {
+  try {
+    const res = await fetch('/api/compliance/self-exclusion/', {
+      headers: { 'Authorization': `Bearer ${TOKEN}` }
+    });
+    const data = await res.json();
+    // Si tiene autoexclusión activa
+    if (res.ok && data.is_active) {
+      return true;
+    }
+  } catch(e) {}
+  return false;
+}
 async function confirmarApuesta() {
   const monto = document.getElementById('monto-apuesta').value;
   const msg = document.getElementById('msg-apuesta');
 
   if (!monto || parseFloat(monto) <= 0) {
-    msg.innerHTML = '<span class="text-danger">Ingresá un monto válido.</span>';
+    msg.innerHTML = '<span style="color:#e53935">Ingresá un monto válido.</span>';
     return;
   }
 
@@ -115,11 +171,46 @@ async function confirmarApuesta() {
 
   const data = await res.json();
   if (res.ok || res.status === 201) {
-    msg.innerHTML = `<span class="text-success">✅ Apuesta confirmada!</span>`;
+  msg.innerHTML = `<span style="color:var(--fb-green)">✅ Apuesta confirmada! Pago potencial: S/ ${parseFloat(data.potential_payout || monto * seleccionActual.odds).toFixed(2)}</span>`;
+  cargarSaldoNavbar();
+} else {
+  const errorMsg = data.error || data.detail || JSON.stringify(data);
+  const esExclusion = errorMsg.toLowerCase().includes('exclu') ||
+                      errorMsg.toLowerCase().includes('autoexclui') ||
+                      errorMsg.toLowerCase().includes('suspendid');
+  const esKyc = errorMsg.toLowerCase().includes('kyc') ||
+                errorMsg.toLowerCase().includes('verificad');
+  const esSaldo = errorMsg.toLowerCase().includes('saldo') ||
+                  errorMsg.toLowerCase().includes('insuficiente');
+
+  if (esExclusion) {
+    msg.innerHTML = `
+      <div class="text-center" style="color:#e53935">
+        <i class="bi bi-shield-x" style="font-size:2rem;"></i>
+        <p class="mt-2"><strong>Cuenta suspendida</strong></p>
+        <p style="font-size:0.85rem;">Tenés una autoexclusión activa.</p>
+        <a href="/perfil/" class="btn btn-sm btn-outline-warning mt-1">Ver mi perfil</a>
+      </div>`;
+  } else if (esKyc) {
+    msg.innerHTML = `
+      <div class="text-center" style="color:var(--fb-gold)">
+        <i class="bi bi-person-x" style="font-size:2rem;"></i>
+        <p class="mt-2"><strong>KYC no verificado</strong></p>
+        <p style="font-size:0.85rem;">Necesitás verificar tu identidad para apostar.</p>
+        <a href="/perfil/" class="btn btn-sm btn-outline-warning mt-1">Verificar identidad</a>
+      </div>`;
+  } else if (esSaldo) {
+    msg.innerHTML = `
+      <div class="text-center" style="color:#e53935">
+        <i class="bi bi-wallet2" style="font-size:2rem;"></i>
+        <p class="mt-2"><strong>Saldo insuficiente</strong></p>
+        <p style="font-size:0.85rem;">Recargá fichas para continuar.</p>
+        <a href="/wallet/" class="btn btn-sm btn-primary mt-1">Recargar</a>
+      </div>`;
   } else {
-    msg.innerHTML = `<span class="text-danger">❌ ${data.error || data.detail || JSON.stringify(data)}</span>`;
+    msg.innerHTML = `<span style="color:#e53935">❌ ${errorMsg}</span>`;
   }
-}
+}}
 
 cargarEvento();
 </script>
@@ -131,13 +222,13 @@ cargarEvento();
 <div class="modal fade" id="modalApuesta" tabindex="-1">
   <div class="modal-dialog">
     <div class="modal-content">
-      <div class="modal-header bg-primary text-white">
+      <div class="modal-header">
         <h5 class="modal-title"><i class="bi bi-dice-5"></i> Confirmar apuesta</h5>
         <button type="button" class="btn-close btn-close-white" data-bs-dismiss="modal"></button>
       </div>
       <div class="modal-body">
         <p><strong>Selección:</strong> <span id="sel-nombre"></span></p>
-        <p><strong>Cuota:</strong> <span id="sel-odds"></span></p>
+        <p><strong>Cuota:</strong> <span id="sel-odds" style="color:var(--fb-green); font-weight:700;"></span></p>
         <div class="mb-3">
           <label class="form-label">Monto (S/)</label>
           <input type="number" id="monto-apuesta" class="form-control form-control-lg"
@@ -148,7 +239,7 @@ cargarEvento();
       <div class="modal-footer">
         <button class="btn btn-secondary" data-bs-dismiss="modal">Cancelar</button>
         <button class="btn btn-primary" onclick="confirmarApuesta()">
-          <i class="bi bi-check-lg"></i> Apostar
+          <i class="bi bi-check-lg"></i> APOSTAR
         </button>
       </div>
     </div>

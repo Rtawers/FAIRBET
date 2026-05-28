@@ -34,17 +34,6 @@ def _get_balance(wallet_account) -> Decimal:
 
 
 def execute_recharge(user: User, amount: Decimal) -> 'Transaction':
-    """
-    Recarga fichas virtuales al wallet del usuario.
-
-    Partida doble:
-      CASA   DEBIT  amount
-      WALLET CREDIT amount
-      Suma firmada = 0
-
-    Raises:
-      ValueError: si amount <= 0.
-    """
     from apps.wallet.models import Account, LedgerEntry, Transaction
 
     if amount <= Decimal('0'):
@@ -52,11 +41,23 @@ def execute_recharge(user: User, amount: Decimal) -> 'Transaction':
             f'El monto de recarga debe ser mayor a cero. Recibido: {amount}'
         )
 
+    # Validar límite de depósito (compliance)
+    # Validar límite de depósito (compliance)
+    from apps.compliance.services import validate_deposit
+    from django.core.exceptions import ValidationError as DjangoValidationError
+    try:
+        validate_deposit(user=user, amount=amount)
+    except DjangoValidationError as e:
+        raise ValueError(e.message)
+    except Exception as e:
+        raise ValueError(str(e))
+
     with transaction.atomic():
         casa = Account.objects.get(type=Account.AccountType.CASA)
         wallet = Account.objects.get(
             user=user, type=Account.AccountType.WALLET
         )
+        
 
         tx = Transaction.objects.create(kind=Transaction.Kind.RECHARGE)
 

@@ -19,3 +19,7 @@ def evento_detalle_view(request, event_id):
 
 def mis_apuestas_view(request):
     return render(request, 'mis_apuestas.html')
+
+
+def perfil_view(request):
+    return render(request, 'perfil.html')

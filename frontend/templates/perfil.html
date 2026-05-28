@@ -1,0 +1,340 @@
+{% extends "base.html" %}
+
+{% block title %}Mi Perfil — FairBet Lab{% endblock %}
+
+{% block content %}
+<div class="row">
+  <div class="col-md-4">
+
+    <!-- Card perfil -->
+    <div class="card mb-4">
+      <div class="card-body text-center py-4">
+        <div style="font-size: 4rem; color: var(--fb-green);">
+          <i class="bi bi-person-circle"></i>
+        </div>
+        <h4 id="perfil-username" class="mt-2 mb-0">—</h4>
+        <p id="perfil-email" style="color:var(--fb-muted); font-size:0.85rem;"></p>
+        <div id="perfil-kyc" class="mt-2"></div>
+      </div>
+    </div>
+
+    <!-- Card saldo -->
+    <div class="card mb-4">
+      <div class="card-header">
+        <i class="bi bi-wallet2"></i> Mi Wallet
+      </div>
+      <div class="card-body">
+        <div class="d-flex justify-content-between mb-2">
+          <span style="color:var(--fb-muted)">Saldo disponible</span>
+          <strong id="perfil-saldo" style="color:var(--fb-green)">S/ —</strong>
+        </div>
+        <div class="d-flex justify-content-between mb-2">
+          <span style="color:var(--fb-muted)">Saldo bono</span>
+          <strong id="perfil-bono" style="color:var(--fb-gold)">S/ —</strong>
+        </div>
+        <a href="/wallet/" class="btn btn-primary w-100 mt-2">
+          <i class="bi bi-plus-lg"></i> Recargar fichas
+        </a>
+      </div>
+    </div>
+
+  </div>
+
+  <div class="col-md-8">
+
+    <!-- Estadísticas -->
+    <div class="card mb-4">
+      <div class="card-header">
+        <i class="bi bi-bar-chart"></i> Mis estadísticas
+      </div>
+      <div class="card-body">
+        <div class="row g-3" id="perfil-stats">
+          <div class="col-12 text-center py-3">
+            <div class="spinner-border text-primary"></div>
+          </div>
+        </div>
+      </div>
+    </div>
+
+   <!-- Juego responsable -->
+<div class="card mb-4">
+  <div class="card-header" style="color:var(--fb-gold)">
+    <i class="bi bi-shield-check"></i> Juego responsable
+  </div>
+  <div class="card-body">
+
+    <!-- Límite de depósito -->
+    <h6 style="color:var(--fb-text)"><i class="bi bi-cash-stack"></i> Límite de depósito diario</h6>
+    <div id="limite-actual" class="mb-3" style="color:var(--fb-muted); font-size:0.85rem;">
+      Cargando...
+    </div>
+    <div class="d-flex gap-2 mb-3">
+      <input type="number" id="nuevo-limite" class="form-control form-control-sm"
+             placeholder="Nuevo límite (S/)" min="1" step="1" style="max-width:180px;">
+      <button class="btn btn-sm btn-outline-warning" onclick="configurarLimite()">
+        <i class="bi bi-save"></i> Guardar
+      </button>
+    </div>
+    <div id="msg-limite" style="font-size:0.85rem;" class="mb-3"></div>
+
+    <hr style="border-color:var(--fb-border)">
+
+    <!-- Autoexclusión -->
+    <h6 style="color:var(--fb-text)"><i class="bi bi-pause-circle"></i> Autoexclusión</h6>
+    <p style="color:var(--fb-muted); font-size:0.85rem;">
+      Si sentís que el juego está afectando tu vida, podés pausar tu cuenta temporalmente.
+    </p>
+    <div class="d-flex gap-2 flex-wrap">
+      <button class="btn btn-outline-warning btn-sm" onclick="autoexcluirse(7)">
+        Pausa 7 días
+      </button>
+      <button class="btn btn-outline-warning btn-sm" onclick="autoexcluirse(30)">
+        Pausa 30 días
+      </button>
+      <button class="btn btn-outline-danger btn-sm" onclick="autoexcluirse(null)">
+        <i class="bi bi-x-circle"></i> Indefinida
+      </button>
+    </div>
+    <div id="msg-exclusion" class="mt-2" style="font-size:0.85rem;"></div>
+
+  </div>
+</div>
+
+    <!-- Historial reciente -->
+    <div class="card">
+      <div class="card-header">
+        <i class="bi bi-clock-history"></i> Últimas apuestas
+        <a href="/mis-apuestas/" class="float-end" style="color:var(--fb-green); font-size:0.8rem;">
+          Ver todas
+        </a>
+      </div>
+      <div class="card-body p-0">
+        <div id="perfil-apuestas">
+          <div class="text-center py-3">
+            <div class="spinner-border spinner-border-sm text-primary"></div>
+          </div>
+        </div>
+      </div>
+    </div>
+
+  </div>
+</div>
+{% endblock %}
+
+{% block scripts %}
+<script>
+const TOKEN = localStorage.getItem('access_token');
+if (!TOKEN) window.location.href = '/';
+
+const ESTADO_BADGE = {
+  'ACCEPTED': ['warning', 'Pendiente'],
+  'WON': ['success', 'Ganada'],
+  'LOST': ['danger', 'Perdida'],
+  'CANCELLED': ['secondary', 'Cancelada'],
+};
+
+async function cargarPerfil() {
+  // Username desde JWT
+  try {
+    const payload = JSON.parse(atob(TOKEN.split('.')[1]));
+    document.getElementById('perfil-username').textContent = payload.username || '—';
+  } catch(e) {}
+
+  // Saldo wallet
+  try {
+    const res = await fetch('/api/wallet/balance/', {
+      headers: { 'Authorization': `Bearer ${TOKEN}` }
+    });
+    const data = await res.json();
+    if (res.ok) {
+      document.getElementById('perfil-saldo').textContent =
+        `S/ ${parseFloat(data.balance).toFixed(2)}`;
+    }
+  } catch(e) {}
+
+  // Apuestas y estadísticas
+  try {
+    const res = await fetch('/api/betting/bets/mine/', {
+      headers: { 'Authorization': `Bearer ${TOKEN}` }
+    });
+    const apuestas = await res.json();
+
+    const ganadas = apuestas.filter(b => b.status === 'WON').length;
+    const perdidas = apuestas.filter(b => b.status === 'LOST').length;
+    const pendientes = apuestas.filter(b => b.status === 'ACCEPTED').length;
+    const canceladas = apuestas.filter(b => b.status === 'CANCELLED').length;
+    const totalApostado = apuestas.reduce((s, b) => s + parseFloat(b.amount), 0);
+    const totalGanado = apuestas
+      .filter(b => b.status === 'WON')
+      .reduce((s, b) => s + parseFloat(b.potential_payout), 0);
+
+    document.getElementById('perfil-stats').innerHTML = `
+      <div class="col-6 col-md-3 text-center">
+        <div class="card" style="border-color:var(--fb-green)">
+          <div class="card-body py-3">
+            <h3 style="color:var(--fb-green)">${ganadas}</h3>
+            <small style="color:var(--fb-muted)">Ganadas</small>
+          </div>
+        </div>
+      </div>
+      <div class="col-6 col-md-3 text-center">
+        <div class="card" style="border-color:#e53935">
+          <div class="card-body py-3">
+            <h3 style="color:#e53935">${perdidas}</h3>
+            <small style="color:var(--fb-muted)">Perdidas</small>
+          </div>
+        </div>
+      </div>
+      <div class="col-6 col-md-3 text-center">
+        <div class="card" style="border-color:var(--fb-gold)">
+          <div class="card-body py-3">
+            <h3 style="color:var(--fb-gold)">${pendientes}</h3>
+            <small style="color:var(--fb-muted)">Pendientes</small>
+          </div>
+        </div>
+      </div>
+      <div class="col-6 col-md-3 text-center">
+        <div class="card">
+          <div class="card-body py-3">
+            <h3>${apuestas.length}</h3>
+            <small style="color:var(--fb-muted)">Total</small>
+          </div>
+        </div>
+      </div>
+      <div class="col-6 text-center mt-2">
+        <div class="card">
+          <div class="card-body py-2">
+            <small style="color:var(--fb-muted)">Total apostado</small>
+            <h5 style="color:var(--fb-text)">S/ ${totalApostado.toFixed(2)}</h5>
+          </div>
+        </div>
+      </div>
+      <div class="col-6 text-center mt-2">
+        <div class="card" style="border-color:var(--fb-green)">
+          <div class="card-body py-2">
+            <small style="color:var(--fb-muted)">Total ganado</small>
+            <h5 style="color:var(--fb-green)">S/ ${totalGanado.toFixed(2)}</h5>
+          </div>
+        </div>
+      </div>
+    `;
+
+    // Últimas 5 apuestas
+    const ultimas = apuestas.slice(0, 5);
+    if (!ultimas.length) {
+      document.getElementById('perfil-apuestas').innerHTML =
+        '<p class="text-center py-3" style="color:var(--fb-muted)">No tenés apuestas todavía.</p>';
+    } else {
+      document.getElementById('perfil-apuestas').innerHTML = `
+        <table class="table table-hover mb-0">
+          <tbody>
+            ${ultimas.map(b => {
+              const [color, label] = ESTADO_BADGE[b.status] || ['secondary', b.status];
+              return `
+                <tr>
+                  <td><small style="color:var(--fb-muted)">#${b.id}</small></td>
+                  <td><span class="badge bg-primary">${parseFloat(b.odds).toFixed(2)}</span></td>
+                  <td>S/ ${parseFloat(b.amount).toFixed(2)}</td>
+                  <td><span class="badge bg-${color}">${label}</span></td>
+                </tr>
+              `;
+            }).join('')}
+          </tbody>
+        </table>
+      `;
+    }
+  } catch(e) {}
+
+  // KYC status
+  document.getElementById('perfil-kyc').innerHTML = `
+    <span class="badge" style="background-color:var(--fb-green)">
+      <i class="bi bi-check-circle"></i> KYC Verificado
+    </span>
+  `;
+
+  // Bono
+  document.getElementById('perfil-bono').textContent = 'S/ 0.00';
+}
+
+async function autoexcluirse(dias) {
+  const msg = document.getElementById('msg-exclusion');
+  const confirmar = confirm(dias
+    ? `¿Confirmás una pausa de ${dias} días?`
+    : '¿Confirmás la autoexclusión indefinida?'
+  );
+  if (!confirmar) return;
+
+  const body = dias
+    ? { exclusion_type: 'TEMPORARY', duration_days: dias }
+    : { exclusion_type: 'INDEFINITE' };
+
+  const res = await fetch('/api/compliance/self-exclusion/', {
+    method: 'POST',
+    headers: {
+      'Authorization': `Bearer ${TOKEN}`,
+      'Content-Type': 'application/json',
+    },
+    body: JSON.stringify(body)
+  });
+
+  if (res.ok) {
+    msg.innerHTML = `<span style="color:var(--fb-green)">✅ Autoexclusión aplicada correctamente.</span>`;
+  } else {
+    const data = await res.json();
+    msg.innerHTML = `<span style="color:#e53935">❌ ${data.error || JSON.stringify(data)}</span>`;
+  }
+}
+
+async function cargarLimite() {
+  try {
+    const res = await fetch('/api/compliance/deposit-limit/', {
+      headers: { 'Authorization': `Bearer ${TOKEN}` }
+    });
+    const data = await res.json();
+    const el = document.getElementById('limite-actual');
+    if (res.ok) {
+      if (data.active_limit) {
+        el.innerHTML = `
+          <span style="color:var(--fb-text)">
+            Límite activo: <strong style="color:var(--fb-green)">S/ ${parseFloat(data.active_limit).toFixed(2)}</strong>
+          </span>
+          ${data.pending_limit ? `<br><small>Pendiente: S/ ${parseFloat(data.pending_limit).toFixed(2)} (aplica en 24hs)</small>` : ''}
+        `;
+      } else {
+        el.innerHTML = '<span style="color:var(--fb-muted)">Sin límite configurado.</span>';
+      }
+    }
+  } catch(e) {}
+}
+
+async function configurarLimite() {
+  const monto = document.getElementById('nuevo-limite').value;
+  const msg = document.getElementById('msg-limite');
+
+  if (!monto || parseFloat(monto) <= 0) {
+    msg.innerHTML = '<span style="color:#e53935">Ingresá un monto válido.</span>';
+    return;
+  }
+
+  const res = await fetch('/api/compliance/deposit-limit/', {
+    method: 'POST',
+    headers: {
+      'Authorization': `Bearer ${TOKEN}`,
+      'Content-Type': 'application/json',
+    },
+    body: JSON.stringify({ amount: parseFloat(monto) })
+  });
+
+  const data = await res.json();
+  if (res.ok) {
+    msg.innerHTML = `<span style="color:var(--fb-green)">✅ Límite configurado correctamente.</span>`;
+    cargarLimite();
+  } else {
+    msg.innerHTML = `<span style="color:#e53935">❌ ${data.error || JSON.stringify(data)}</span>`;
+  }
+}
+
+cargarPerfil();
+cargarLimite();
+</script>
+{% endblock %}

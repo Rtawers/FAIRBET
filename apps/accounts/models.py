@@ -1,5 +1,7 @@
 from django.db import models
 from django.conf import settings
+from django.db.models.signals import post_save
+from django.dispatch import receiver
 
 
 class UserProfile(models.Model):
@@ -9,21 +11,18 @@ class UserProfile(models.Model):
         on_delete=models.CASCADE,
         related_name="profile"
     )
-
     dni = models.CharField(
         max_length=20,
         unique=True,
         null=True,
         blank=True
     )
-
     KYC_STATUS_CHOICES = [
         ("PENDING_VERIFICATION", "Pending Verification"),
         ("VERIFIED", "Verified"),
         ("REJECTED", "Rejected"),
-        ("BLOCKED", "Blocked"), 
+        ("BLOCKED", "Blocked"),
     ]
-
     kyc_status = models.CharField(
         max_length=25,
         choices=KYC_STATUS_CHOICES,
@@ -41,9 +40,8 @@ class SuspiciousActivity(models.Model):
         VELOCITY_WITHDRAW = 'VEL_WITHDRAW', 'Retiro inmediato post-recarga'
 
     user = models.ForeignKey(
-        settings.AUTH_USER_MODEL, 
-        on_delete=models.CASCADE, 
-        # CAMBIO: related_name único para la app accounts
+        settings.AUTH_USER_MODEL,
+        on_delete=models.CASCADE,
         related_name='accounts_suspicious_activities'
     )
     trigger_type = models.CharField(max_length=30, choices=TriggerType.choices)
@@ -53,3 +51,18 @@ class SuspiciousActivity(models.Model):
 
     def __str__(self):
         return f"Alerta {self.trigger_type} - {self.user.username}"
+
+
+# Signal: crear cuenta WALLET automáticamente al crear un usuario
+@receiver(post_save, sender=settings.AUTH_USER_MODEL)
+def crear_wallet_automatico(sender, instance, created, **kwargs):
+    if created:
+        try:
+            from apps.wallet.models import Account
+            Account.objects.get_or_create(
+                user=instance,
+                type=Account.AccountType.WALLET,
+                defaults={'currency': 'PEN'},
+            )
+        except Exception:
+            pass

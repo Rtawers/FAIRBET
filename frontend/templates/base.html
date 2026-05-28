@@ -23,10 +23,19 @@
       <a class="navbar-brand" href="/eventos/">
         <i class="bi bi-dice-5-fill"></i> FAIRBET <span style="font-size:0.7rem;font-weight:400;opacity:0.5;">LAB</span>
       </a>
-      <div class="navbar-nav ms-auto d-flex flex-row gap-3">
+      <div class="navbar-nav ms-auto d-flex flex-row gap-3 align-items-center">
         <a class="nav-link" href="/eventos/"><i class="bi bi-calendar-event"></i> Eventos</a>
         <a class="nav-link" href="/mis-apuestas/"><i class="bi bi-list-check"></i> Mis Apuestas</a>
         <a class="nav-link" href="/wallet/"><i class="bi bi-wallet2"></i> Wallet</a>
+        <!-- Saldo en navbar -->
+        <span id="navbar-saldo"
+              style="color: var(--fb-green); font-weight: 700; font-size: 0.9rem; padding: 4px 10px; border: 1px solid var(--fb-green); border-radius: 4px;">
+          S/ —
+        </span>
+        <!-- Perfil -->
+        <a class="nav-link" href="/perfil/" style="color:var(--fb-muted)!important">
+          <i class="bi bi-person-circle"></i> <span id="navbar-username">Mi cuenta</span>
+        </a>
         <a class="nav-link" href="/api/schema/swagger-ui/" target="_blank"><i class="bi bi-code-slash"></i> API</a>
         <a class="nav-link" href="#" onclick="logout()" style="color:#e53935!important">
           <i class="bi bi-box-arrow-right"></i> Salir
@@ -52,6 +61,35 @@
       localStorage.removeItem('refresh_token');
       window.location.href = '/';
     }
+
+    async function cargarSaldoNavbar() {
+      const token = localStorage.getItem('access_token');
+      if (!token) return;
+
+      // Saldo
+      try {
+        const res = await fetch('/api/wallet/balance/', {
+          headers: { 'Authorization': `Bearer ${token}` }
+        });
+        const data = await res.json();
+        if (res.ok) {
+          document.getElementById('navbar-saldo').textContent =
+            `S/ ${parseFloat(data.balance).toFixed(2)}`;
+        }
+      } catch (e) {}
+
+      // Username desde JWT
+      try {
+        const payload = JSON.parse(atob(token.split('.')[1]));
+        const el = document.getElementById('navbar-username');
+        if (el && payload.username) {
+          el.textContent = payload.username;
+        }
+      } catch (e) {}
+    }
+
+    cargarSaldoNavbar();
+    setInterval(cargarSaldoNavbar, 30000);
   </script>
   {% block scripts %}{% endblock %}
 </body>

@@ -88,6 +88,73 @@ def crear_evento(nombre, local, visitante, horas_desde_ahora=24):
     return event
 
 
+def crear_mercados(event, odds):
+    tipos_existentes = list(event.markets.values_list('market_type', flat=True))
+
+    # 1X2
+    if '1x2' not in tipos_existentes:
+        Market.create_1x2_market(
+            event=event,
+            odds_home=Decimal(str(odds[0])),
+            odds_draw=Decimal(str(odds[1])),
+            odds_away=Decimal(str(odds[2])),
+        )
+        print(f'  [ok] 1X2 para {event.name}')
+    else:
+        print(f'  [skip] 1X2 {event.name}')
+
+    # Over/Under 2.5
+    if 'over_under' not in tipos_existentes:
+        Market.create_overunder_market(
+            event=event,
+            line=Decimal('2.5'),
+            odds_over=Decimal('1.85'),
+            odds_under=Decimal('1.95'),
+        )
+        print(f'  [ok] Over/Under para {event.name}')
+    else:
+        print(f'  [skip] O/U {event.name}')
+
+    # BTTS (Ambos equipos anotan)
+    if 'btts' not in tipos_existentes:
+        Market.create_btts_market(
+            event=event,
+            odds_yes=Decimal('1.75'),
+            odds_no=Decimal('2.05'),
+        )
+        print(f'  [ok] BTTS para {event.name}')
+    else:
+        print(f'  [skip] BTTS {event.name}')
+
+    # Handicap
+    if 'handicap' not in tipos_existentes:
+        Market.create_handicap_market(
+            event=event,
+            handicap=Decimal('-1.5'),
+            odds_home=Decimal('2.20'),
+            odds_away=Decimal('1.65'),
+        )
+        print(f'  [ok] Handicap para {event.name}')
+    else:
+        print(f'  [skip] Handicap {event.name}')
+
+    # Goleador exacto
+    if 'goleador_exacto' not in tipos_existentes:
+        Market.create_goleador_exacto_market(
+            event=event,
+            jugadores=[
+                {'nombre': 'Guerrero', 'odds': Decimal('4.50')},
+                {'nombre': 'Lapadula', 'odds': Decimal('5.00')},
+                {'nombre': 'Cueva', 'odds': Decimal('7.00')},
+                {'nombre': 'Flores', 'odds': Decimal('8.00')},
+            ],
+            odds_sin_goleador=Decimal('3.20'),
+        )
+        print(f'  [ok] Goleador exacto para {event.name}')
+    else:
+        print(f'  [skip] Goleador {event.name}')
+
+
 def main():
     print('\n=== FairBet Lab — Seed de datos ===\n')
 
@@ -99,7 +166,6 @@ def main():
     user1 = crear_usuario('carlos', 'carlos123', dni='12345678')
     user2 = crear_usuario('maria', 'maria123', dni='87654321')
 
-    # Asegurar cuentas WALLET para usuarios que ya existían
     for user in [user1, user2]:
         Account.objects.get_or_create(
             user=user,
@@ -120,25 +186,31 @@ def main():
     e2 = crear_evento('Argentina vs Chile', 'Argentina', 'Chile', horas_desde_ahora=48)
     e3 = crear_evento('Colombia vs Ecuador', 'Colombia', 'Ecuador', horas_desde_ahora=72)
 
-    print('\n>> Mercados 1X2...')
-    for event, odds in [
+    print('\n>> Mercados...')
+    mercados_config = [
         (e1, (2.50, 3.20, 2.80)),
         (e2, (1.90, 3.50, 3.80)),
         (e3, (2.10, 3.00, 3.40)),
-    ]:
+    ]
+    for event, odds in mercados_config:
         try:
-            if not event.markets.exists():
-                Market.create_1x2_market(
-                    event=event,
-                    odds_home=Decimal(str(odds[0])),
-                    odds_draw=Decimal(str(odds[1])),
-                    odds_away=Decimal(str(odds[2])),
-                )
-                print(f'  [ok] Mercado 1X2 para {event.name}')
-            else:
-                print(f'  [skip] {event.name} ya tiene mercado')
+            crear_mercados(event, odds)
         except Exception as e:
             print(f'  [error] {event.name}: {e}')
+
+    print('\n>> Verificando KYC...')
+    for username in ['carlos', 'maria']:
+        try:
+            user = User.objects.get(username=username)
+            profile = UserProfile.objects.get(user=user)
+            if profile.kyc_status != 'VERIFIED':
+                profile.kyc_status = 'VERIFIED'
+                profile.save()
+                print(f'  [ok] KYC de {username} actualizado a VERIFIED')
+            else:
+                print(f'  [skip] {username} ya tiene KYC VERIFIED')
+        except Exception as e:
+            print(f'  [error] {username}: {e}')
 
     print('\n=== Seed completado ===')
     print('\nCredenciales de demo:')
@@ -149,19 +221,6 @@ def main():
     print('Admin:      http://localhost:8000/admin/')
     print('Login:      http://localhost:8000/')
 
-    print('\n>> Verificando KYC...')
-from apps.accounts.models import UserProfile
-for username in ['carlos', 'maria']:
-    try:
-        user = User.objects.get(username=username)
-        profile = UserProfile.objects.get(user=user)
-        if profile.kyc_status != 'VERIFIED':
-            profile.kyc_status = 'VERIFIED'
-            profile.save()
-            print(f'  [ok] KYC de {username} actualizado a VERIFIED')
-        else:
-            print(f'  [skip] {username} ya tiene KYC VERIFIED')
-    except Exception as e:
-        print(f'  [error] {username}: {e}')
+
 if __name__ == '__main__':
     main()
