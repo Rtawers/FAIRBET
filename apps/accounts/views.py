@@ -108,6 +108,7 @@ def me_view(request):
         'username': request.user.username,
         'email': request.user.email,
         'kyc_status': request.user.profile.kyc_status,
+        'is_staff': request.user.is_staff,
     })
 
 class LoginThrottleView(TokenObtainPairView):
