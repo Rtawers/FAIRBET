@@ -1,8 +1,5 @@
 from django.db import models
 from django.conf import settings
-from django.db.models.signals import post_save
-from django.dispatch import receiver
-
 
 class UserProfile(models.Model):
     registration_ip = models.GenericIPAddressField(null=True, blank=True)
@@ -52,17 +49,3 @@ class SuspiciousActivity(models.Model):
     def __str__(self):
         return f"Alerta {self.trigger_type} - {self.user.username}"
 
-
-# Signal: crear cuenta WALLET automáticamente al crear un usuario
-@receiver(post_save, sender=settings.AUTH_USER_MODEL)
-def crear_wallet_automatico(sender, instance, created, **kwargs):
-    if created:
-        try:
-            from apps.wallet.models import Account
-            Account.objects.get_or_create(
-                user=instance,
-                type=Account.AccountType.WALLET,
-                defaults={'currency': 'PEN'},
-            )
-        except Exception:
-            pass

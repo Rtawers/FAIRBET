@@ -101,8 +101,9 @@ def validate_deposit(user, amount):
 
     if total_hoy + Decimal(str(amount)) > Decimal(str(active_limit)):
         raise ValidationError(
-            f'Límite diario excedido. Llevás S/ {total_hoy:.2f} de S/ {active_limit:.2f} permitidos hoy.'
-        )
+        f'El monto de recarga excede el límite diario configurado. '
+        f'Llevás S/ {total_hoy:.2f} de S/ {active_limit:.2f} permitidos hoy.'
+    )
     return True
 
 
