@@ -167,3 +167,45 @@ class WithdrawView(APIView):
             {'transaction_id': tx.id, 'balance': new_balance},
             status=status.HTTP_201_CREATED,
         )
+class TransactionHistoryView(APIView):
+    """GET /api/wallet/transactions/ — historial de transacciones del usuario."""
+    permission_classes = [IsAuthenticated]
+
+    def get(self, request):
+        try:
+            wallet = Account.objects.get(
+                user=request.user,
+                type=Account.AccountType.WALLET
+            )
+        except Account.DoesNotExist:
+            return Response([], status=status.HTTP_200_OK)
+
+        entries = LedgerEntry.objects.filter(
+            account=wallet
+        ).select_related('transaction').order_by('-transaction__created_at')[:50]
+
+        data = []
+        seen_transactions = set()
+        for entry in entries:
+            tx = entry.transaction
+            if tx.id in seen_transactions:
+                continue
+            seen_transactions.add(tx.id)
+
+            tipo = {
+                'RECHARGE': 'Recarga',
+                'BET_LOCK': 'Apuesta',
+                'SETTLEMENT': 'Liquidacion',
+                'WITHDRAW': 'Retiro',
+            }.get(tx.kind, tx.kind)
+
+            data.append({
+                'id': tx.id,
+                'tipo': tipo,
+                'kind': tx.kind,
+                'amount': str(entry.amount),
+                'direction': entry.direction,
+                'created_at': tx.created_at.isoformat(),
+            })
+
+        return Response(data, status=status.HTTP_200_OK)

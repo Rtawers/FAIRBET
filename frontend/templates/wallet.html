@@ -58,7 +58,19 @@
       </div>
     </div>
   </div>
-
+  <!-- Historial de transacciones -->
+<div class="card mt-4">
+  <div class="card-header d-flex justify-content-between align-items-center">
+    <span><i class="bi bi-clock-history"></i> Historial de transacciones</span>
+    <small style="color:var(--fb-muted)">Últimas 50</small>
+  </div>
+  <div class="card-body p-0">
+    <div id="historial-transacciones">
+      <div class="text-center py-3">
+        <div class="spinner-border spinner-border-sm text-primary"></div>
+      </div>
+    </div>
+  </div>
 </div>
 {% endblock %}
 
@@ -120,7 +132,55 @@
       msg.innerHTML = `<span class="text-danger">❌ ${data.error || 'Error'}</span>`;
     }
   }
+  async function cargarHistorial() {
+  const res = await fetch('/api/wallet/transactions/', {
+    headers: { 'Authorization': `Bearer ${TOKEN}` }
+  });
+  const data = await res.json();
+  const container = document.getElementById('historial-transacciones');
 
+  if (!data.length) {
+    container.innerHTML = '<p class="text-center py-3" style="color:var(--fb-muted)">Sin transacciones todavía.</p>';
+    return;
+  }
+
+  const iconos = {
+    'RECHARGE': 'bi-plus-circle text-success',
+    'WITHDRAW': 'bi-dash-circle text-danger',
+    'BET_LOCK': 'bi-lock text-warning',
+    'SETTLEMENT': 'bi-trophy text-primary',
+  };
+
+  container.innerHTML = `
+    <table class="table table-hover mb-0">
+      <thead style="background:#0a0f1e">
+        <tr>
+          <th style="color:var(--fb-muted); font-size:0.8rem">#</th>
+          <th style="color:var(--fb-muted); font-size:0.8rem">Tipo</th>
+          <th style="color:var(--fb-muted); font-size:0.8rem">Monto</th>
+          <th style="color:var(--fb-muted); font-size:0.8rem">Fecha</th>
+        </tr>
+      </thead>
+      <tbody>
+        ${data.map(tx => `
+          <tr>
+            <td><small style="color:var(--fb-muted)">#${tx.id}</small></td>
+            <td>
+              <i class="bi ${iconos[tx.kind] || 'bi-circle'}"></i>
+              ${tx.tipo}
+            </td>
+            <td style="color:${tx.direction === 'CREDIT' ? 'var(--fb-green)' : '#e53935'}">
+              ${tx.direction === 'CREDIT' ? '+' : '-'} S/ ${parseFloat(tx.amount).toFixed(2)}
+            </td>
+            <td><small style="color:var(--fb-muted)">${new Date(tx.created_at).toLocaleString('es-PE')}</small></td>
+          </tr>
+        `).join('')}
+      </tbody>
+    </table>
+  `;
+}
+
+cargarHistorial();
   cargarSaldo();
 </script>
 {% endblock %}
