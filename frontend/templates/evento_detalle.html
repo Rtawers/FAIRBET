@@ -20,7 +20,7 @@ if (!TOKEN) window.location.href = '/';
 const EVENT_ID = {{ event_id }};
 let golesLocal = 0;
 let golesVisitante = 0;
-let cronometroActivo = false;
+let intervaloActivo = null;
 
 function badgeEstado(status) {
   const colores = { 'SCHEDULED': 'var(--fb-green)', 'LIVE': '#e53935', 'FINISHED': '#666', 'SUSPENDED': 'var(--fb-gold)', 'VOIDED': '#444' };
@@ -38,13 +38,8 @@ function cargarMarcadorGuardado() {
   golesVisitante = marcador.visitante;
 }
 
-function guardarMarcador() {
-  localStorage.setItem(`marcador_${EVENT_ID}`, JSON.stringify({ local: golesLocal, visitante: golesVisitante }));
-}
-
 function iniciarCronometro() {
-  if (cronometroActivo) return;
-  cronometroActivo = true;
+  if (intervaloActivo) return;
 
   const key = `cronometro_event_${EVENT_ID}`;
   if (!localStorage.getItem(key)) {
@@ -61,12 +56,13 @@ function iniciarCronometro() {
     localStorage.setItem(golesKey, JSON.stringify(goles));
   }
 
-  const golesProgramados = JSON.parse(localStorage.getItem(golesKey));
-  const golesAnotados = new Set();
+    const golesProgramados = JSON.parse(localStorage.getItem(golesKey));
+    const golesAnotadosKey = `goles_anotados_${EVENT_ID}`;
+    const golesAnotados = new Set(JSON.parse(localStorage.getItem(golesAnotadosKey) || '[]'));
 
-  setInterval(() => {
+  intervaloActivo = setInterval(() => {
     const inicio = parseInt(localStorage.getItem(`cronometro_event_${EVENT_ID}`));
-    const totalSegundos = Math.floor((Date.now() - inicio) / 200);
+    const totalSegundos = Math.floor((Date.now() - inicio) / 55);
     const mins = Math.floor(totalSegundos / 60);
     const secs = totalSegundos % 60;
 
@@ -82,16 +78,23 @@ function iniciarCronometro() {
 
     for (const gol of golesProgramados) {
       const golKey = `${gol.minuto}_${gol.equipo}`;
-      if (mins >= gol.minuto && secs === 0 && !golesAnotados.has(golKey)) {
+      if (mins >= gol.minuto && !golesAnotados.has(golKey)) {
         golesAnotados.add(golKey);
+        localStorage.setItem(golesAnotadosKey, JSON.stringify([...golesAnotados]));
         registrarGol(gol.equipo);
       }
+    }
+
+    if (mins >= 90 && !localStorage.getItem(`finalizado_${EVENT_ID}`)) {
+      localStorage.setItem(`finalizado_${EVENT_ID}`, 'true');
+      clearInterval(intervaloActivo);
+      intervaloActivo = null;
+      finalizarPartido();
     }
   }, 200);
 }
 
 async function registrarGol(equipo) {
-  // Persistir goles
   const marcador = JSON.parse(localStorage.getItem(`marcador_${EVENT_ID}`) || '{"local":0,"visitante":0}');
   if (equipo === 'local') {
     marcador.local++;
@@ -130,7 +133,9 @@ async function registrarGol(equipo) {
         });
       }
     }
-    setTimeout(() => cargarEvento(), 600);
+
+    // Actualizar badges sin recargar toda la página
+    actualizarBadgesMercados('SUSPENDED');
 
     // Reabrir mercados después de 10 segundos
     setTimeout(async () => {
@@ -147,15 +152,84 @@ async function registrarGol(equipo) {
             });
           }
         }
-        setTimeout(() => cargarEvento(), 500);
+        actualizarBadgesMercados('OPEN');
       } catch(e) {}
     }, 10000);
   } catch(e) {}
 }
 
+function actualizarBadgesMercados(nuevoEstado) {
+  // Actualizar badges de estado sin recargar la página
+  document.querySelectorAll('[data-market-badge]').forEach(badge => {
+    badge.textContent = nuevoEstado;
+    badge.style.backgroundColor = nuevoEstado === 'OPEN' ? 'var(--fb-green)' : 'var(--fb-gold)';
+  });
+
+  document.querySelectorAll('[data-market-suspend-label]').forEach(label => {
+    label.style.display = nuevoEstado === 'SUSPENDED' ? 'inline' : 'none';
+  });
+
+  document.querySelectorAll('[data-market-btn]').forEach(btn => {
+    if (nuevoEstado === 'OPEN') {
+      btn.disabled = false;
+      btn.textContent = 'APOSTAR';
+      btn.className = 'btn btn-primary btn-sm w-100';
+    } else {
+      btn.disabled = true;
+      btn.textContent = 'Suspendido';
+      btn.className = 'btn btn-sm w-100';
+      btn.style.background = '#1c2030';
+      btn.style.borderColor = 'var(--fb-border)';
+      btn.style.color = 'var(--fb-muted)';
+    }
+  });
+}
+
+async function finalizarPartido() {
+  // Intentar transición — puede fallar si no es admin, no importa
+  try {
+    await fetch(`/api/events/events/${EVENT_ID}/transition/`, {
+      method: 'POST',
+      headers: {
+        'Authorization': `Bearer ${TOKEN}`,
+        'Content-Type': 'application/json',
+      },
+      body: JSON.stringify({ status: 'FINISHED' })
+    });
+  } catch(e) {}
+
+  // Liquidar apuestas siempre, independiente de si la transición funcionó
+  await liquidarApuestas();
+  setTimeout(() => cargarEvento(), 1000);
+}
+
+async function liquidarApuestas() {
+  try {
+    const res = await fetch('/api/betting/bets/mine/', {
+      headers: { 'Authorization': `Bearer ${TOKEN}` }
+    });
+    const apuestas = await res.json();
+    const pendientes = apuestas.filter(b => b.status === 'ACCEPTED');
+    const marcador = JSON.parse(localStorage.getItem(`marcador_${EVENT_ID}`) || '{"local":0,"visitante":0}');
+
+    for (const apuesta of pendientes) {
+      const gano = marcador.local > marcador.visitante;
+      await fetch('/api/betting/settle/', {
+        method: 'POST',
+        headers: {
+          'Authorization': `Bearer ${TOKEN}`,
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({ bet_id: apuesta.id, won: gano })
+      });
+    }
+    cargarSaldoNavbar();
+  } catch(e) {}
+}
+
 async function cargarEvento() {
-  // Restaurar goles desde localStorage antes de renderizar
   cargarMarcadorGuardado();
+  const estaActivo = intervaloActivo;
 
   const res = await fetch(`/api/events/events/${EVENT_ID}/`, {
     headers: { 'Authorization': `Bearer ${TOKEN}` }
@@ -226,8 +300,8 @@ async function cargarEvento() {
         ` : ''}
         ${ev.markets.map(m => `
           <h5 class="mt-3 mb-2">${m.name}
-            <span class="badge ms-2" style="background-color:${m.status === 'OPEN' ? 'var(--fb-green)' : 'var(--fb-gold)'}; font-size:0.7rem;">${m.status}</span>
-            ${m.status === 'SUSPENDED' ? '<small style="color:var(--fb-gold); font-size:0.75rem; margin-left:8px;">Suspendido por gol</small>' : ''}
+            <span class="badge ms-2" data-market-badge style="background-color:${m.status === 'OPEN' ? 'var(--fb-green)' : 'var(--fb-gold)'}; font-size:0.7rem;">${m.status}</span>
+            <small data-market-suspend-label style="color:var(--fb-gold); font-size:0.75rem; margin-left:8px; display:${m.status === 'SUSPENDED' ? 'inline' : 'none'}">Suspendido por gol</small>
           </h5>
           <div class="d-flex gap-3 flex-wrap mb-3">
             ${m.selections.map(s => `
@@ -238,12 +312,12 @@ async function cargarEvento() {
                     ${parseFloat(s.odds).toFixed(2)}
                   </h3>
                   ${puedeApostar(ev.status, m.status) ? `
-                    <button class="btn btn-primary btn-sm w-100"
+                    <button class="btn btn-primary btn-sm w-100" data-market-btn
                       onclick="seleccionar(${ev.id}, ${m.id}, ${s.id}, '${s.name}', ${s.odds})">
                       APOSTAR
                     </button>
                   ` : `
-                    <button class="btn btn-sm w-100" disabled
+                    <button class="btn btn-sm w-100" data-market-btn disabled
                       style="background:#1c2030; border:1px solid var(--fb-border); color:var(--fb-muted);">
                       ${m.status === 'SUSPENDED' ? 'Suspendido' :
                         ev.status === 'FINISHED' ? 'Finalizado' : 'No disponible'}
@@ -258,7 +332,7 @@ async function cargarEvento() {
     </div>
   `;
 
-  if (ev.status === 'LIVE') {
+  if (ev.status === 'LIVE' && !estaActivo) {
     iniciarCronometro();
   }
 }
