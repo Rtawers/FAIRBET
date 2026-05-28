@@ -15,3 +15,7 @@ def eventos_view(request):
 
 def evento_detalle_view(request, event_id):
     return render(request, 'evento_detalle.html', {'event_id': event_id})
+
+
+def mis_apuestas_view(request):
+    return render(request, 'mis_apuestas.html')
