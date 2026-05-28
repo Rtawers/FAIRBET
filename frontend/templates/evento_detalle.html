@@ -18,22 +18,13 @@ const TOKEN = localStorage.getItem('access_token');
 if (!TOKEN) window.location.href = '/';
 
 const EVENT_ID = {{ event_id }};
+let golesLocal = 0;
+let golesVisitante = 0;
+let cronometroActivo = false;
 
 function badgeEstado(status) {
-  const colores = {
-    'SCHEDULED': 'var(--fb-green)',
-    'LIVE': '#e53935',
-    'FINISHED': '#666',
-    'SUSPENDED': 'var(--fb-gold)',
-    'VOIDED': '#444',
-  };
-  const labels = {
-    'SCHEDULED': 'PROGRAMADO',
-    'LIVE': '🔴 EN VIVO',
-    'FINISHED': 'FINALIZADO',
-    'SUSPENDED': '⚠️ SUSPENDIDO',
-    'VOIDED': 'ANULADO',
-  };
+  const colores = { 'SCHEDULED': 'var(--fb-green)', 'LIVE': '#e53935', 'FINISHED': '#666', 'SUSPENDED': 'var(--fb-gold)', 'VOIDED': '#444' };
+  const labels = { 'SCHEDULED': 'PROGRAMADO', 'LIVE': 'EN VIVO', 'FINISHED': 'FINALIZADO', 'SUSPENDED': 'SUSPENDIDO', 'VOIDED': 'ANULADO' };
   return `<span class="badge fs-6" style="background-color:${colores[status] || '#666'}">${labels[status] || status}</span>`;
 }
 
@@ -41,7 +32,131 @@ function puedeApostar(evStatus, mStatus) {
   return (evStatus === 'SCHEDULED' || evStatus === 'LIVE') && mStatus === 'OPEN';
 }
 
+function cargarMarcadorGuardado() {
+  const marcador = JSON.parse(localStorage.getItem(`marcador_${EVENT_ID}`) || '{"local":0,"visitante":0}');
+  golesLocal = marcador.local;
+  golesVisitante = marcador.visitante;
+}
+
+function guardarMarcador() {
+  localStorage.setItem(`marcador_${EVENT_ID}`, JSON.stringify({ local: golesLocal, visitante: golesVisitante }));
+}
+
+function iniciarCronometro() {
+  if (cronometroActivo) return;
+  cronometroActivo = true;
+
+  const key = `cronometro_event_${EVENT_ID}`;
+  if (!localStorage.getItem(key)) {
+    localStorage.setItem(key, Date.now().toString());
+  }
+
+  const golesKey = `goles_programados_${EVENT_ID}`;
+  if (!localStorage.getItem(golesKey)) {
+    const goles = [
+      { minuto: Math.floor(Math.random() * 25) + 10, equipo: Math.random() > 0.5 ? 'local' : 'visitante' },
+      { minuto: Math.floor(Math.random() * 20) + 40, equipo: Math.random() > 0.5 ? 'local' : 'visitante' },
+      { minuto: Math.floor(Math.random() * 20) + 65, equipo: Math.random() > 0.5 ? 'local' : 'visitante' },
+    ];
+    localStorage.setItem(golesKey, JSON.stringify(goles));
+  }
+
+  const golesProgramados = JSON.parse(localStorage.getItem(golesKey));
+  const golesAnotados = new Set();
+
+  setInterval(() => {
+    const inicio = parseInt(localStorage.getItem(`cronometro_event_${EVENT_ID}`));
+    const totalSegundos = Math.floor((Date.now() - inicio) / 200);
+    const mins = Math.floor(totalSegundos / 60);
+    const secs = totalSegundos % 60;
+
+    const el = document.getElementById('cronometro');
+    if (el) {
+      if (mins >= 90) {
+        el.textContent = "FT";
+        el.style.color = '#666';
+      } else {
+        el.textContent = `${String(mins).padStart(2, '0')}:${String(secs).padStart(2, '0')}'`;
+      }
+    }
+
+    for (const gol of golesProgramados) {
+      const golKey = `${gol.minuto}_${gol.equipo}`;
+      if (mins >= gol.minuto && secs === 0 && !golesAnotados.has(golKey)) {
+        golesAnotados.add(golKey);
+        registrarGol(gol.equipo);
+      }
+    }
+  }, 200);
+}
+
+async function registrarGol(equipo) {
+  // Persistir goles
+  const marcador = JSON.parse(localStorage.getItem(`marcador_${EVENT_ID}`) || '{"local":0,"visitante":0}');
+  if (equipo === 'local') {
+    marcador.local++;
+    golesLocal = marcador.local;
+    const el = document.getElementById('goles-local');
+    if (el) {
+      el.textContent = golesLocal;
+      el.style.transform = 'scale(1.4)';
+      el.style.color = 'var(--fb-gold)';
+      setTimeout(() => { el.style.transform = 'scale(1)'; el.style.color = '#fff'; }, 800);
+    }
+  } else {
+    marcador.visitante++;
+    golesVisitante = marcador.visitante;
+    const el = document.getElementById('goles-visitante');
+    if (el) {
+      el.textContent = golesVisitante;
+      el.style.transform = 'scale(1.4)';
+      el.style.color = 'var(--fb-gold)';
+      setTimeout(() => { el.style.transform = 'scale(1)'; el.style.color = '#fff'; }, 800);
+    }
+  }
+  localStorage.setItem(`marcador_${EVENT_ID}`, JSON.stringify(marcador));
+
+  // Suspender mercados
+  try {
+    const res = await fetch(`/api/events/events/${EVENT_ID}/`, {
+      headers: { 'Authorization': `Bearer ${TOKEN}` }
+    });
+    const ev = await res.json();
+    for (const market of ev.markets) {
+      if (market.status === 'OPEN') {
+        await fetch(`/api/events/markets/${market.id}/suspend/`, {
+          method: 'POST',
+          headers: { 'Authorization': `Bearer ${TOKEN}`, 'Content-Type': 'application/json' }
+        });
+      }
+    }
+    setTimeout(() => cargarEvento(), 600);
+
+    // Reabrir mercados después de 10 segundos
+    setTimeout(async () => {
+      try {
+        const res2 = await fetch(`/api/events/events/${EVENT_ID}/`, {
+          headers: { 'Authorization': `Bearer ${TOKEN}` }
+        });
+        const ev2 = await res2.json();
+        for (const market of ev2.markets) {
+          if (market.status === 'SUSPENDED') {
+            await fetch(`/api/events/markets/${market.id}/reopen/`, {
+              method: 'POST',
+              headers: { 'Authorization': `Bearer ${TOKEN}`, 'Content-Type': 'application/json' }
+            });
+          }
+        }
+        setTimeout(() => cargarEvento(), 500);
+      } catch(e) {}
+    }, 10000);
+  } catch(e) {}
+}
+
 async function cargarEvento() {
+  // Restaurar goles desde localStorage antes de renderizar
+  cargarMarcadorGuardado();
+
   const res = await fetch(`/api/events/events/${EVENT_ID}/`, {
     headers: { 'Authorization': `Bearer ${TOKEN}` }
   });
@@ -55,43 +170,71 @@ async function cargarEvento() {
   const ev = await res.json();
 
   document.getElementById('evento-container').innerHTML = `
-    <div class="d-flex justify-content-between align-items-center mb-4">
+    <div class="d-flex justify-content-between align-items-center mb-3">
       <a href="/eventos/" class="btn btn-outline-secondary btn-sm">
         <i class="bi bi-arrow-left"></i> Volver
       </a>
       ${badgeEstado(ev.status)}
     </div>
 
-    <div class="card mb-4">
-      <div class="card-header">
-        <h4 class="mb-0">${ev.home_team} vs ${ev.away_team}</h4>
-        <small style="color:var(--fb-muted)">${new Date(ev.starts_at).toLocaleString('es-PE')}</small>
+    <div class="card mb-4" style="background: linear-gradient(135deg, #0a0f1e 0%, #1a2744 100%);">
+      <div class="card-body py-4">
+        <div class="row align-items-center text-center">
+          <div class="col-4">
+            <div style="font-size:1.3rem; font-weight:800; color:#fff;">${ev.home_team}</div>
+            <div style="font-size:0.75rem; color:var(--fb-muted); margin-top:4px;">Local</div>
+          </div>
+          <div class="col-4">
+            ${ev.status === 'LIVE' ? `
+              <div style="background:#e53935; border-radius:6px; padding:3px 10px; display:inline-block; margin-bottom:8px;">
+                <span style="font-size:0.6rem; color:#fff; letter-spacing:2px; font-weight:700;">● LIVE</span>
+              </div>
+              <div style="font-size:3rem; font-weight:900; color:#fff; font-family:monospace; line-height:1;">
+                <span id="goles-local" style="transition: all 0.3s;">${golesLocal}</span>
+                <span style="color:var(--fb-muted); margin:0 8px;">:</span>
+                <span id="goles-visitante" style="transition: all 0.3s;">${golesVisitante}</span>
+              </div>
+              <div id="cronometro" style="font-size:0.9rem; color:var(--fb-muted); font-family:monospace; margin-top:6px;">00:00'</div>
+            ` : ev.status === 'FINISHED' ? `
+              <div style="background:#444; border-radius:6px; padding:3px 10px; display:inline-block; margin-bottom:8px;">
+                <span style="font-size:0.6rem; color:#fff; letter-spacing:2px;">FINALIZADO</span>
+              </div>
+              <div style="font-size:3rem; font-weight:900; color:#aaa; font-family:monospace;">
+                ${golesLocal} : ${golesVisitante}
+              </div>
+            ` : `
+              <div style="background:var(--fb-green); border-radius:6px; padding:3px 10px; display:inline-block; margin-bottom:8px;">
+                <span style="font-size:0.6rem; color:#fff; letter-spacing:2px;">PROXIMO</span>
+              </div>
+              <div style="font-size:0.9rem; color:var(--fb-muted); margin-top:8px;">${new Date(ev.starts_at).toLocaleString('es-PE')}</div>
+            `}
+          </div>
+          <div class="col-4">
+            <div style="font-size:1.3rem; font-weight:800; color:#fff;">${ev.away_team}</div>
+            <div style="font-size:0.75rem; color:var(--fb-muted); margin-top:4px;">Visitante</div>
+          </div>
+        </div>
       </div>
+    </div>
+
+    <div class="card">
       <div class="card-body">
         ${ev.status === 'FINISHED' ? `
-          <div class="alert alert-secondary text-center py-2">
-            <i class="bi bi-flag-fill"></i> Este evento ha finalizado. Ya no se aceptan apuestas.
-          </div>
-        ` : ev.status === 'SUSPENDED' ? `
-          <div class="alert alert-warning text-center py-2">
-            <i class="bi bi-pause-circle"></i> Mercado suspendido temporalmente.
+          <div class="alert alert-secondary text-center py-2 mb-3">
+            <i class="bi bi-flag-fill"></i> Partido finalizado. Resultado: ${golesLocal} - ${golesVisitante}
           </div>
         ` : ''}
-
         ${ev.markets.map(m => `
-          <h5 class="mt-3">${m.name}
-            <span class="badge ms-2" style="background-color:${m.status === 'OPEN' ? 'var(--fb-green)' : 'var(--fb-gold)'}; font-size:0.75rem;">
-              ${m.status}
-            </span>
+          <h5 class="mt-3 mb-2">${m.name}
+            <span class="badge ms-2" style="background-color:${m.status === 'OPEN' ? 'var(--fb-green)' : 'var(--fb-gold)'}; font-size:0.7rem;">${m.status}</span>
+            ${m.status === 'SUSPENDED' ? '<small style="color:var(--fb-gold); font-size:0.75rem; margin-left:8px;">Suspendido por gol</small>' : ''}
           </h5>
-          <div class="d-flex gap-3 flex-wrap mt-2">
+          <div class="d-flex gap-3 flex-wrap mb-3">
             ${m.selections.map(s => `
-              <div class="card flex-grow-1 text-center" style="min-width:120px">
+              <div class="card flex-grow-1 text-center" style="min-width:120px; ${m.status === 'SUSPENDED' ? 'opacity:0.6;' : ''}">
                 <div class="card-body py-3">
-                  <p class="mb-1 fw-bold">${s.name}</p>
-                  <h3 style="color:var(--fb-green)" class="mb-2"
-                      data-outcome="${s.outcome}"
-                      data-market="${m.id}">
+                  <p class="mb-1 fw-bold" style="font-size:0.85rem;">${s.name}</p>
+                  <h3 style="color:var(--fb-green)" class="mb-2" data-outcome="${s.outcome}" data-market="${m.id}">
                     ${parseFloat(s.odds).toFixed(2)}
                   </h3>
                   ${puedeApostar(ev.status, m.status) ? `
@@ -102,9 +245,8 @@ async function cargarEvento() {
                   ` : `
                     <button class="btn btn-sm w-100" disabled
                       style="background:#1c2030; border:1px solid var(--fb-border); color:var(--fb-muted);">
-                      ${ev.status === 'FINISHED' ? 'Finalizado' :
-                        ev.status === 'SUSPENDED' ? 'Suspendido' :
-                        m.status !== 'OPEN' ? 'Cerrado' : 'No disponible'}
+                      ${m.status === 'SUSPENDED' ? 'Suspendido' :
+                        ev.status === 'FINISHED' ? 'Finalizado' : 'No disponible'}
                     </button>
                   `}
                 </div>
@@ -115,14 +257,17 @@ async function cargarEvento() {
       </div>
     </div>
   `;
+
+  if (ev.status === 'LIVE') {
+    iniciarCronometro();
+  }
 }
 
 let seleccionActual = null;
 
 async function seleccionar(eventId, marketId, selectionId, nombre, odds) {
-  const excluido = await verificarAutoexclusion();
-  if (excluido) {
-    alert('❌ Tenés una autoexclusión activa. No podés realizar apuestas.');
+  if (localStorage.getItem('autoexcluido') === 'true') {
+    alert('Tenes una autoexclusion activa. No podes realizar apuestas.');
     return;
   }
   seleccionActual = { eventId, marketId, selectionId, nombre, odds };
@@ -133,25 +278,12 @@ async function seleccionar(eventId, marketId, selectionId, nombre, odds) {
   new bootstrap.Modal(document.getElementById('modalApuesta')).show();
 }
 
-async function verificarAutoexclusion() {
-  try {
-    const res = await fetch('/api/compliance/self-exclusion/', {
-      headers: { 'Authorization': `Bearer ${TOKEN}` }
-    });
-    const data = await res.json();
-    // Si tiene autoexclusión activa
-    if (res.ok && data.is_active) {
-      return true;
-    }
-  } catch(e) {}
-  return false;
-}
 async function confirmarApuesta() {
   const monto = document.getElementById('monto-apuesta').value;
   const msg = document.getElementById('msg-apuesta');
 
   if (!monto || parseFloat(monto) <= 0) {
-    msg.innerHTML = '<span style="color:#e53935">Ingresá un monto válido.</span>';
+    msg.innerHTML = '<span style="color:#e53935">Ingresa un monto valido.</span>';
     return;
   }
 
@@ -163,62 +295,48 @@ async function confirmarApuesta() {
       'Content-Type': 'application/json',
       'Idempotency-Key': key,
     },
-    body: JSON.stringify({
-      selection_id: seleccionActual.selectionId,
-      amount: monto,
-    })
+    body: JSON.stringify({ selection_id: seleccionActual.selectionId, amount: monto })
   });
 
   const data = await res.json();
   if (res.ok || res.status === 201) {
-  msg.innerHTML = `<span style="color:var(--fb-green)">✅ Apuesta confirmada! Pago potencial: S/ ${parseFloat(data.potential_payout || monto * seleccionActual.odds).toFixed(2)}</span>`;
-  cargarSaldoNavbar();
-} else {
-  const errorMsg = data.error || data.detail || JSON.stringify(data);
-  const esExclusion = errorMsg.toLowerCase().includes('exclu') ||
-                      errorMsg.toLowerCase().includes('autoexclui') ||
-                      errorMsg.toLowerCase().includes('suspendid');
-  const esKyc = errorMsg.toLowerCase().includes('kyc') ||
-                errorMsg.toLowerCase().includes('verificad');
-  const esSaldo = errorMsg.toLowerCase().includes('saldo') ||
-                  errorMsg.toLowerCase().includes('insuficiente');
+    msg.innerHTML = `<span style="color:var(--fb-green)">Apuesta confirmada! Pago potencial: S/ ${parseFloat(data.potential_payout || monto * seleccionActual.odds).toFixed(2)}</span>`;
+    cargarSaldoNavbar();
+  } else {
+    const errorMsg = data.error || data.detail || JSON.stringify(data);
+    const esSuspendido = errorMsg.toLowerCase().includes('suspendido') || errorMsg.toLowerCase().includes('suspended');
+    const esExclusion = errorMsg.toLowerCase().includes('exclu');
+    const esSaldo = errorMsg.toLowerCase().includes('saldo') || errorMsg.toLowerCase().includes('insuficiente');
 
-  if (esExclusion) {
-    msg.innerHTML = `
-      <div class="text-center" style="color:#e53935">
+    if (esSuspendido) {
+      msg.innerHTML = `<div class="text-center" style="color:var(--fb-gold)">
+        <i class="bi bi-pause-circle" style="font-size:2rem;"></i>
+        <p class="mt-2"><strong>Mercado suspendido</strong></p>
+        <p style="font-size:0.85rem;">Intenta en unos segundos.</p>
+      </div>`;
+    } else if (esExclusion) {
+      msg.innerHTML = `<div class="text-center" style="color:#e53935">
         <i class="bi bi-shield-x" style="font-size:2rem;"></i>
         <p class="mt-2"><strong>Cuenta suspendida</strong></p>
-        <p style="font-size:0.85rem;">Tenés una autoexclusión activa.</p>
         <a href="/perfil/" class="btn btn-sm btn-outline-warning mt-1">Ver mi perfil</a>
       </div>`;
-  } else if (esKyc) {
-    msg.innerHTML = `
-      <div class="text-center" style="color:var(--fb-gold)">
-        <i class="bi bi-person-x" style="font-size:2rem;"></i>
-        <p class="mt-2"><strong>KYC no verificado</strong></p>
-        <p style="font-size:0.85rem;">Necesitás verificar tu identidad para apostar.</p>
-        <a href="/perfil/" class="btn btn-sm btn-outline-warning mt-1">Verificar identidad</a>
-      </div>`;
-  } else if (esSaldo) {
-    msg.innerHTML = `
-      <div class="text-center" style="color:#e53935">
+    } else if (esSaldo) {
+      msg.innerHTML = `<div class="text-center" style="color:#e53935">
         <i class="bi bi-wallet2" style="font-size:2rem;"></i>
         <p class="mt-2"><strong>Saldo insuficiente</strong></p>
-        <p style="font-size:0.85rem;">Recargá fichas para continuar.</p>
         <a href="/wallet/" class="btn btn-sm btn-primary mt-1">Recargar</a>
       </div>`;
-  } else {
-    msg.innerHTML = `<span style="color:#e53935">❌ ${errorMsg}</span>`;
+    } else {
+      msg.innerHTML = `<span style="color:#e53935">Error: ${errorMsg}</span>`;
+    }
   }
-}}
+}
 
 cargarEvento();
 </script>
 
-<!-- WebSocket odds en vivo -->
 <script src="{% static 'js/odds.js' %}"></script>
 
-<!-- Modal apuesta -->
 <div class="modal fade" id="modalApuesta" tabindex="-1">
   <div class="modal-dialog">
     <div class="modal-content">
@@ -227,7 +345,7 @@ cargarEvento();
         <button type="button" class="btn-close btn-close-white" data-bs-dismiss="modal"></button>
       </div>
       <div class="modal-body">
-        <p><strong>Selección:</strong> <span id="sel-nombre"></span></p>
+        <p><strong>Seleccion:</strong> <span id="sel-nombre"></span></p>
         <p><strong>Cuota:</strong> <span id="sel-odds" style="color:var(--fb-green); font-weight:700;"></span></p>
         <div class="mb-3">
           <label class="form-label">Monto (S/)</label>

@@ -5,7 +5,7 @@ from rest_framework.response import Response
 from rest_framework import status
 from rest_framework.throttling import ScopedRateThrottle
 from django.core.exceptions import PermissionDenied, ValidationError
-
+from rest_framework.permissions import IsAuthenticated, IsAdminUser
 from apps.events.models import Selection
 from apps.betting.services import place_bet
 from apps.betting.serializers import PlaceBetSerializer
@@ -147,3 +147,39 @@ def my_bets_view(request):
     ]
 
     return Response(data)
+# Endpoint liquidar apuesta (solo admin)
+@api_view(["POST"])
+@permission_classes([IsAdminUser])
+def settle_bet_view(request):
+    from apps.wallet.models import Bet
+    from apps.wallet.services import execute_bet_settlement
+
+    bet_id = request.data.get("bet_id")
+    won = request.data.get("won")
+
+    if bet_id is None or won is None:
+        return Response(
+            {"error": "Se requieren bet_id y won (true/false)"},
+            status=status.HTTP_400_BAD_REQUEST,
+        )
+
+    try:
+        bet = Bet.objects.get(pk=bet_id)
+        execute_bet_settlement(bet, won=bool(won))
+        return Response(
+            {"detail": f"Apuesta #{bet_id} liquidada. Resultado: {'ganada' if won else 'perdida'}"},
+            status=status.HTTP_200_OK,
+        )
+    except Bet.DoesNotExist:
+        return Response({"error": "Apuesta no encontrada"}, status=status.HTTP_404_NOT_FOUND)
+    except ValueError as e:
+        return Response({"error": str(e)}, status=status.HTTP_400_BAD_REQUEST)
+    
+@api_view(['GET'])
+@permission_classes([IsAuthenticated])
+def me_view(request):
+    return Response({
+        'username': request.user.username,
+        'email': request.user.email,
+        'kyc_status': request.user.profile.kyc_status,
+    })

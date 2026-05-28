@@ -134,11 +134,23 @@ const ESTADO_BADGE = {
 };
 
 async function cargarPerfil() {
-  // Username desde JWT
-  try {
-    const payload = JSON.parse(atob(TOKEN.split('.')[1]));
-    document.getElementById('perfil-username').textContent = payload.username || '—';
-  } catch(e) {}
+  // Username desde API
+try {
+  const res = await fetch('/api/accounts/me/', {
+    headers: { 'Authorization': `Bearer ${TOKEN}` }
+  });
+  const data = await res.json();
+  if (res.ok) {
+    document.getElementById('perfil-username').textContent = data.username;
+    document.getElementById('perfil-email').textContent = data.email || '';
+    document.getElementById('perfil-kyc').innerHTML = `
+      <span class="badge" style="background-color:${data.kyc_status === 'VERIFIED' ? 'var(--fb-green)' : 'var(--fb-gold)'}">
+        <i class="bi bi-${data.kyc_status === 'VERIFIED' ? 'check' : 'clock'}-circle"></i>
+        ${data.kyc_status === 'VERIFIED' ? 'KYC Verificado' : 'KYC Pendiente'}
+      </span>
+    `;
+  }
+} catch(e) {}
 
   // Saldo wallet
   try {

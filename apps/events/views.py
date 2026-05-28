@@ -37,8 +37,8 @@ class MarketViewSet(viewsets.ModelViewSet):
 
     def get_permissions(self):
         if self.action in ["create", "update", "partial_update", "destroy",
-                           "update_odds_action", "suspend", "reopen"]:
-            return [IsAdminUser()]
+                   "update_odds_action"]:
+                return [IsAdminUser()]
         return [IsAuthenticated()]
 
     @action(detail=True, methods=["post"], url_path="odds")
