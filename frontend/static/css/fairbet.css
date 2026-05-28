@@ -338,6 +338,17 @@ input[type="date"] {
   border-bottom-color: var(--fb-border) !important;
 }
 
+/* Animación odds en tiempo real */
+@keyframes oddsFlash {
+  0%   { color: var(--fb-gold); transform: scale(1.15); }
+  50%  { color: #fff; }
+  100% { color: var(--fb-green); transform: scale(1); }
+}
+
+.odds-changed {
+  animation: oddsFlash 1.5s ease-in-out !important;
+}
+
 /* Scrollbar */
 ::-webkit-scrollbar { width: 6px; }
 ::-webkit-scrollbar-track { background: var(--fb-bg); }

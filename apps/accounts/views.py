@@ -101,7 +101,14 @@ def verify_kyc(request):
         {"error": "DNI inválido por algoritmo Módulo 11"},
         status=status.HTTP_400_BAD_REQUEST
     )
-
+@api_view(['GET'])
+@permission_classes([IsAuthenticated])
+def me_view(request):
+    return Response({
+        'username': request.user.username,
+        'email': request.user.email,
+        'kyc_status': request.user.profile.kyc_status,
+    })
 
 class LoginThrottleView(TokenObtainPairView):
     throttle_classes = [ScopedRateThrottle]
